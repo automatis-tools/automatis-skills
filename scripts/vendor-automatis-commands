@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+FRONTMATTER_LINE = re.compile(r"^([A-Za-z0-9_-]+):\s*(.*)$")
+
+
+class FrontmatterError(ValueError):
+    pass
+
+
+class SkillError(ValueError):
+    pass
+
+
+@dataclass
+class Skill:
+    name: str
+    directory: Path
+    fields: dict[str, str]
+    body: str
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
+    if not text.startswith("---"):
+        raise FrontmatterError("missing opening ---")
+    rest = text[3:]
+    if rest.startswith("\n"):
+        rest = rest[1:]
+    end = rest.find("\n---")
+    if end < 0:
+        raise FrontmatterError("missing closing ---")
+    raw_fields = rest[:end]
+    body = rest[end + 4 :]
+    # Drop the newline that ends the closing --- line, then an optional blank line.
+    if body.startswith("\n"):
+        body = body[1:]
+    if body.startswith("\n"):
+        body = body[1:]
+    fields: dict[str, str] = {}
+    for line in raw_fields.splitlines():
+        if not line.strip():
+            continue
+        match = FRONTMATTER_LINE.match(line)
+        if not match:
+            raise FrontmatterError(f"unsupported frontmatter line: {line!r}")
+        key, value = match.group(1), match.group(2).strip()
+        if value in ("|", ">", ">-", "|-") or value.startswith("|") or value.startswith(">"):
+            raise FrontmatterError(f"block scalars are not supported: {key}")
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        fields[key] = value
+    return fields, body
+
+
+def discover_skills(plugin_root: Path) -> list[Path]:
+    skills_root = plugin_root / "skills"
+    if not skills_root.is_dir():
+        return []
+    found: list[Path] = []
+    for child in sorted(skills_root.iterdir()):
+        if child.is_dir() and (child / "SKILL.md").is_file():
+            found.append(child)
+    return found
+
+
+def load_skill(directory: Path) -> Skill:
+    path = directory / "SKILL.md"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise SkillError(f"cannot read {path}: {exc}") from exc
+    try:
+        fields, body = parse_frontmatter(text)
+    except FrontmatterError as exc:
+        raise SkillError(f"{path}: {exc}") from exc
+    name = fields.get("name", "")
+    if not name:
+        raise SkillError(f"{path}: missing name")
+    if "description" not in fields or not fields["description"]:
+        raise SkillError(f"{path}: missing description")
+    if name != directory.name:
+        raise SkillError(f"{path}: name {name!r} does not match folder {directory.name!r}")
+    if not name.startswith("automatis-"):
+        raise SkillError(f"{path}: name must start with 'automatis-'")
+    return Skill(name=name, directory=directory, fields=fields, body=body)
