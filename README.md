@@ -1,20 +1,36 @@
-# Automatis Tools
+# Automatis Skills
 
-Team commands for Claude Code, Grok, Codex, Gemini, and Kimi. Author once as Agent Skills in this repo; vendor a copy into each product repo.
+Public commands for Claude Code, Grok, Codex, Gemini, and Kimi.
 
-## Invocation
-
-| Tool | Example |
-|------|---------|
+| Tool | Run |
+|------|-----|
 | Claude Code, Grok, Gemini, Kimi | `/automatis-fix-pr` |
 | Codex | `$automatis-fix-pr` |
 | Kimi fallback | `/skill:automatis-fix-pr` |
 
-The colon form `/automatis:fix-pr` is retired.
+The old colon form `/automatis:fix-pr` is gone.
 
-## Vendor into a product repo
+## Install (your machine, every repo)
 
-From this checkout:
+```bash
+git clone https://github.com/automatis-tools/automatis-skills.git
+cd automatis-skills
+./scripts/vendor-automatis-commands "$HOME"
+```
+
+That writes:
+
+- `~/.agents/skills/automatis-*/` — Grok, Codex, Gemini, Kimi
+- `~/.claude/commands/automatis-*.md` — Claude Code (`/automatis-fix-pr`)
+- `~/.automatis-commands.json` — names this script manages
+
+Open a new session and type `/` (or `$` in Codex). To update: `git pull` in the clone, then run the vendor command again.
+
+Do not use `/plugin install automatis@automatis-tools` if you want `/automatis-fix-pr`. Claude plugin commands are namespaced as `/automatis:…`.
+
+## Install into a product repo (optional)
+
+If the team should get the commands by cloning the product repo, vendor there instead of `$HOME`:
 
 ```bash
 ./scripts/vendor-automatis-commands /path/to/product-repo
@@ -22,13 +38,7 @@ From this checkout:
 ./scripts/vendor-automatis-commands /path/to/product-repo --prune
 ```
 
-That writes:
-
-- `.agents/skills/automatis-<name>/` — Codex, Grok, Gemini, Kimi
-- `.claude/commands/automatis-<name>.md` — Claude Code (`/automatis-<name>`)
-- `.automatis-commands.json` — names this script manages
-
-Commit those files in the product repo. Re-run the script when a command changes here.
+Commit the generated `.agents/skills/`, `.claude/commands/`, and `.automatis-commands.json` in that repo.
 
 ## Commands
 
@@ -62,20 +72,11 @@ Commit those files in the product repo. Re-run the script when a command changes
 /automatis-git-cleanup --no-pr
 ```
 
-## Claude marketplace (source package)
-
-This repo remains a Claude Code marketplace. Installing the plugin copies skills; it does **not** register `/automatis-fix-pr` on Claude (plugin components are colon-namespaced). Product repos should vendor as above.
-
-```bash
-/plugin marketplace add automatis-tools/automatis-skills
-/plugin install automatis@automatis-tools
-```
-
 ## Contributing
 
 1. Add `automatis/skills/automatis-<name>/SKILL.md` with `name: automatis-<name>`.
 2. Run `./scripts/vendor-automatis-commands --check`.
-3. Commit here, then vendor into each product repo.
+3. Commit here, then vendor into `$HOME` or each product repo.
 
 See [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) for house style, shell-safety, and git hooks.
 
