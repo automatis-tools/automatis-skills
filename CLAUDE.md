@@ -4,9 +4,11 @@ Guidance for Claude Code when working with this repository.
 
 ## Overview
 
-This is a **Claude Code marketplace** for the Automatis team. It hosts a single plugin, `automatis`, which bundles the team's commands under one namespace. Install with `/plugin install automatis@automatis-tools`; invoke with `/automatis:<command>`.
+This is a **multi-harness skills repository** for the Automatis team. Commands are authored once as Agent Skills and vendored into each product repo. In a product repo, invoke `/automatis-<name>` (Codex: `$automatis-<name>`).
 
-The marketplace schema supports multiple plugins, but this one deliberately ships only `automatis` so team members get every command from a single install.
+This repo remains a Claude Code marketplace (`automatis@automatis-tools`). The marketplace is the source package: `/plugin install` copies skills; it does **not** register `/automatis-<name>` on Claude (plugin components are colon-namespaced). Product repos get the hyphen slash command by vendoring. The colon form `/automatis:fix-pr` is retired.
+
+The marketplace schema supports multiple plugins, but this one deliberately ships only `automatis` so team members get every command from a single source package.
 
 ## Structure
 
@@ -16,24 +18,31 @@ The marketplace schema supports multiple plugins, but this one deliberately ship
 
 automatis/
 ├── .claude-plugin/plugin.json
-└── commands/
-    ├── fix-pr.md                 # → /automatis:fix-pr
-    └── ports-release.md          # → /automatis:ports-release
+└── skills/
+    ├── automatis-fix-pr/SKILL.md          # → /automatis-fix-pr
+    ├── automatis-ports-release/SKILL.md   # → /automatis-ports-release
+    └── automatis-git-cleanup/SKILL.md     # → /automatis-git-cleanup
+
+scripts/
+└── vendor-automatis-commands     # copy skills into product repos; --check validates this repo
 ```
+
+There is no `automatis/commands/`. Plugin `commands/` would produce `/automatis:<name>`.
 
 ## Naming Convention
 
-- **Plugin**: always `automatis`. New commands go inside this plugin — do not create sibling plugin directories unless there's a strong reason.
-- **Commands**: kebab-case action names as the markdown filename (`fix-pr.md`, `ports-release.md`, `check-deps.md`). Noun-verb or verb-noun, whichever reads better.
-- **Usage**: `/automatis:<command>` (e.g., `/automatis:fix-pr`). The command name is exactly the filename without `.md`.
+- **Plugin**: always `automatis`. New commands go inside this plugin as skills — do not create sibling plugin directories unless there's a strong reason.
+- **Skills**: folder and frontmatter `name:` are `automatis-<action>` (kebab-case after the prefix): `automatis-fix-pr`, `automatis-ports-release`, `automatis-git-cleanup`.
+- **Usage** (in a product repo): `/automatis-<name>` (e.g. `/automatis-fix-pr`). Codex: `$automatis-<name>`.
 
 ## Adding a Command (common case)
 
-Most work is adding a new command to the existing plugin:
+1. Create `automatis/skills/automatis-<name>/SKILL.md` with `name: automatis-<name>` following the house style in [Skill File Structure](#skill-file-structure) below.
+2. Run `./scripts/vendor-automatis-commands --check`.
+3. Commit in this repo.
+4. In each product repo, run `./scripts/vendor-automatis-commands <product-repo>` from this checkout and commit the vendored files there.
 
-1. Create `automatis/commands/<command-name>.md` following the house style in [Command File Structure](#command-file-structure) below.
-2. No manifest changes needed — Claude Code auto-discovers files in `commands/`.
-3. Reload the plugin (`/plugin reload automatis@automatis-tools`) or restart Claude Code.
+Deleting a command: remove the skill folder here, then run the vendor script with `--prune` in each product repo.
 
 ## Adding a Plugin (rare)
 
@@ -43,7 +52,7 @@ Only needed if a new tool genuinely belongs in its own namespace (distinct audie
    ```
    <plugin-name>/
    ├── .claude-plugin/plugin.json
-   └── commands/<action>.md
+   └── skills/automatis-<action>/SKILL.md
    ```
 
 2. Plugin manifest (`.claude-plugin/plugin.json`):
@@ -72,25 +81,26 @@ Only needed if a new tool genuinely belongs in its own namespace (distinct audie
 ## Plugin Capabilities
 
 Each plugin can include:
-- `commands/` - Slash commands (markdown)
+- `skills/` - Agent skills with `SKILL.md` (this plugin ships these)
 - `agents/` - Custom subagents (markdown)
-- `skills/` - Agent skills with `SKILL.md`
 - `hooks/` - Event hooks in `hooks.json`
 - `.mcp.json` - MCP server configs
 - `.lsp.json` - LSP server configs
 
-### Command File Structure
+Do not add `automatis/commands/`. Plugin slash commands are colon-namespaced (`/automatis:<name>`); product repos get `/automatis-<name>` from vendored `.claude/commands/`.
 
-Every `commands/<action>.md` in this repo follows the same shape — keep new commands consistent so the plugins read as one family:
+### Skill File Structure
 
-- **YAML frontmatter** (between `---` fences) with three fields: `description` (one-line blurb for the `/` menu), `argument-hint` (arg shape shown after the command name in autocomplete), `allowed-tools` (comma-separated whitelist — tighter is safer, e.g. `Bash` alone for commands that never edit files). Then a `# Title` line.
+Every `automatis/skills/automatis-<action>/SKILL.md` in this repo follows the same shape — keep new skills consistent so they read as one family:
+
+- **YAML frontmatter** (between `---` fences) with `name` (must equal the folder name, `automatis-<action>`), `description` (one-line blurb for the `/` menu), `argument-hint` (arg shape shown after the command name in autocomplete), `allowed-tools` (comma-separated whitelist — tighter is safer, e.g. `Bash` alone for commands that never edit files). Then a `# Title` line.
 - `## When to Use` — 2–4 bullets describing trigger scenarios.
-- `## Arguments` — every accepted input form shown as a concrete example line (`/<plugin>:<cmd> <positional>`, `/<plugin>:<cmd>` for interactive mode). Document optional `--flag=value` here.
+- `## Arguments` — every accepted input form shown as a concrete example line (`/automatis-<cmd> <positional>`, `/automatis-<cmd>` for interactive mode). Include one Codex `$automatis-<cmd>` line. Document optional `--flag=value` here.
 - `## Procedure` — numbered steps (`### Step 1: …`), each containing the exact bash block Claude should run. Mark irreversible steps with `**CRITICAL**` so Claude treats them as blocking.
 - `## Safety Rules` — numbered list of guardrails (what to refuse, what to confirm with the user).
 - `## Example Session` (optional) — fenced block showing a real interaction.
 
-Reference implementation: `automatis/commands/fix-pr.md`.
+Reference implementation: `automatis/skills/automatis-fix-pr/SKILL.md`.
 
 ## Shell Safety
 
@@ -105,16 +115,27 @@ These rules live here (not inside individual command files) because any new plug
 
 ## Manual Verification
 
-This repo has no build, lint, or CI pipeline — plugins are declarative markdown + JSON. To verify a change:
+To verify a change:
 
-1. Install the marketplace locally and run the slash command against a real target (a PR number for `/automatis:fix-pr`, a port for `/automatis:ports-release`).
-2. Confirm the plugin manifest parses:
+1. Validate skills and manifests:
    ```bash
-   python3 -c "import json; json.load(open('automatis/.claude-plugin/plugin.json'))"
+   ./scripts/vendor-automatis-commands --check
    ```
-3. Confirm `marketplace.json` still parses after any edit:
+   `--check` parses `marketplace.json` and `automatis/.claude-plugin/plugin.json`, verifies `./automatis`, and rejects a leftover `automatis/commands/` directory.
+
+2. Run unit tests:
    ```bash
-   python3 -c "import json; json.load(open('.claude-plugin/marketplace.json'))"
+   python3 -m unittest discover -s tests -v
    ```
 
-If you later add tooling (lint, schema validation, CI), update this section.
+CI (`.github/workflows/lint.yml`) runs the same tests and `--check`.
+
+## Git hooks
+
+Point this worktree at the tracked hooks so pre-push runs `--check`:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`.githooks/pre-push` runs `python3 -m unittest discover -s tests -v` then `./scripts/vendor-automatis-commands --check`. Never `--no-verify`.

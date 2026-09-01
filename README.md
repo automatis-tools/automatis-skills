@@ -1,86 +1,83 @@
-# Automatis Tools - Claude Code Marketplace
+# Automatis Tools
 
-A Claude Code plugin marketplace for the Automatis team. Ships a single plugin, `automatis`, which bundles the team's commands under one namespace.
+Team commands for Claude Code, Grok, Codex, Gemini, and Kimi. Author once as Agent Skills in this repo; vendor a copy into each product repo.
 
-## Quick Start
+## Invocation
+
+| Tool | Example |
+|------|---------|
+| Claude Code, Grok, Gemini, Kimi | `/automatis-fix-pr` |
+| Codex | `$automatis-fix-pr` |
+| Kimi fallback | `/skill:automatis-fix-pr` |
+
+The colon form `/automatis:fix-pr` is retired.
+
+## Vendor into a product repo
+
+From this checkout:
 
 ```bash
-# Add the marketplace
-/plugin marketplace add automatis-tools/claude-code-plugins
-
-# Install the plugin (one install covers every command)
-/plugin install automatis@automatis-tools
+./scripts/vendor-automatis-commands /path/to/product-repo
+./scripts/vendor-automatis-commands /path/to/product-repo --dry-run
+./scripts/vendor-automatis-commands /path/to/product-repo --prune
 ```
 
-## Available Commands
+That writes:
+
+- `.agents/skills/automatis-<name>/` — Codex, Grok, Gemini, Kimi
+- `.claude/commands/automatis-<name>.md` — Claude Code (`/automatis-<name>`)
+- `.automatis-commands.json` — names this script manages
+
+Commit those files in the product repo. Re-run the script when a command changes here.
+
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/automatis:fix-pr` | Fix GitHub PR review comments |
-| `/automatis:ports-release` | Release port conflicts on macOS |
+| `/automatis-fix-pr` | Fix GitHub PR review comments |
+| `/automatis-ports-release` | Release port conflicts on macOS |
+| `/automatis-git-cleanup` | Clean up local git branches |
 
----
-
-### /automatis:fix-pr
-
-Fetch PR review comments from GitHub and fix identified issues in the codebase.
+### /automatis-fix-pr
 
 ```bash
-/automatis:fix-pr https://github.com/owner/repo/pull/123
-/automatis:fix-pr 123                    # uses current repo
-/automatis:fix-pr                        # interactive mode
+/automatis-fix-pr https://github.com/owner/repo/pull/123
+/automatis-fix-pr 123
+/automatis-fix-pr
 ```
 
-**Features:**
-- Fetches all review comments with pagination
-- Filters to OPEN comments only (no author reply)
-- Groups issues by file and severity
-- Fixes issues one by one, replies on the PR before pushing
-
----
-
-### /automatis:ports-release
-
-Detect, diagnose, and release port conflicts on macOS.
+### /automatis-ports-release
 
 ```bash
-/automatis:ports-release 8000           # release single port
-/automatis:ports-release 8000 8001      # release multiple ports
-/automatis:ports-release                # interactive mode
+/automatis-ports-release 8000
+/automatis-ports-release 8000 8001
+/automatis-ports-release
 ```
 
-**Features:**
-- Identifies process using a port
-- Determines if process belongs to current project
-- Auto-kills project processes, asks before killing others
+### /automatis-git-cleanup
 
----
+```bash
+/automatis-git-cleanup
+/automatis-git-cleanup --dry-run
+/automatis-git-cleanup --no-pr
+```
 
-## Team Setup
+## Claude marketplace (source package)
 
-Add to your project's `.claude/settings.json` to auto-prompt teammates:
+This repo remains a Claude Code marketplace. Installing the plugin copies skills; it does **not** register `/automatis-fix-pr` on Claude (plugin components are colon-namespaced). Product repos should vendor as above.
 
-```json
-{
-  "extraKnownMarketplaces": {
-    "automatis-tools": {
-      "source": {
-        "source": "github",
-        "repo": "automatis-tools/claude-code-plugins"
-      }
-    }
-  }
-}
+```bash
+/plugin marketplace add automatis-tools/automatis-skills
+/plugin install automatis@automatis-tools
 ```
 
 ## Contributing
 
-Most contributions add a new command to the `automatis` plugin:
+1. Add `automatis/skills/automatis-<name>/SKILL.md` with `name: automatis-<name>`.
+2. Run `./scripts/vendor-automatis-commands --check`.
+3. Commit here, then vendor into each product repo.
 
-1. Create `automatis/commands/<command-name>.md` following the house style documented in [CLAUDE.md](CLAUDE.md#command-file-structure).
-2. No manifest changes needed — commands are auto-discovered.
-
-See [CLAUDE.md](CLAUDE.md) for conventions, shell-safety rules, and verification steps.
+See [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) for house style, shell-safety, and git hooks.
 
 ## License
 
