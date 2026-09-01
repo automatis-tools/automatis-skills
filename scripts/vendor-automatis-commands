@@ -151,7 +151,12 @@ def vendor(
     names = [skill.name for skill in skills]
     logs: list[str] = []
     previous = _read_manifest(target_repo)
-    to_prune = [name for name in previous if name not in names] if prune else []
+    if prune:
+        to_prune = [name for name in previous if name not in names]
+        manifest_names = names
+    else:
+        to_prune = []
+        manifest_names = sorted(set(previous) | set(names))
 
     def log(action: str, rel: str) -> None:
         logs.append(f"{action} {rel}")
@@ -185,7 +190,7 @@ def vendor(
         cmd = commands / f"{name}.md"
         if cmd.exists():
             cmd.unlink()
-    _write_manifest(target_repo, names)
+    _write_manifest(target_repo, manifest_names)
     return logs
 
 

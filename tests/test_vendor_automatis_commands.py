@@ -4,6 +4,7 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -226,6 +227,33 @@ class VendorTests(unittest.TestCase):
         self.assertTrue(
             (self.target / ".agents" / "skills" / "automatis-fix-pr" / "SKILL.md").is_file()
         )
+
+    def test_non_prune_keeps_dropped_names_in_manifest(self):
+        self.v.vendor(self.source, self.target)
+        dropped = "automatis-ports-release"
+        shutil.rmtree(self.source / "automatis" / "skills" / dropped)
+        self.v.vendor(self.source, self.target)
+        skill_dir = self.target / ".agents" / "skills" / dropped
+        cmd = self.target / ".claude" / "commands" / f"{dropped}.md"
+        self.assertTrue((skill_dir / "SKILL.md").is_file())
+        self.assertTrue(cmd.is_file())
+        manifest = json.loads(
+            (self.target / ".automatis-commands.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            manifest["skills"],
+            ["automatis-fix-pr", "automatis-ports-release"],
+        )
+        self.v.vendor(self.source, self.target, prune=True)
+        self.assertFalse(skill_dir.exists())
+        self.assertFalse(cmd.exists())
+        self.assertTrue(
+            (self.target / ".agents" / "skills" / "automatis-fix-pr" / "SKILL.md").is_file()
+        )
+        manifest = json.loads(
+            (self.target / ".automatis-commands.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(manifest["skills"], ["automatis-fix-pr"])
 
 
 import io
