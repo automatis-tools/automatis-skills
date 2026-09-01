@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -87,3 +89,99 @@ def load_skill(directory: Path) -> Skill:
     if not name.startswith("automatis-"):
         raise SkillError(f"{path}: name must start with 'automatis-'")
     return Skill(name=name, directory=directory, fields=fields, body=body)
+
+
+COMMAND_KEYS = ("description", "argument-hint", "allowed-tools")
+MANIFEST_NAME = ".automatis-commands.json"
+MANIFEST_SOURCE = "automatis-tools/claude-code-plugins"
+
+
+def load_skills(plugin_root: Path) -> list[Skill]:
+    return [load_skill(path) for path in discover_skills(plugin_root)]
+
+
+def render_claude_command(skill: Skill) -> str:
+    lines = ["---"]
+    for key in COMMAND_KEYS:
+        if key in skill.fields:
+            lines.append(f"{key}: {skill.fields[key]}")
+    lines.append("---")
+    body = skill.body
+    if not body.endswith("\n"):
+        body += "\n"
+    return "\n".join(lines) + "\n" + body
+
+
+def _read_manifest(target_repo: Path) -> list[str]:
+    path = target_repo / MANIFEST_NAME
+    if not path.is_file():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    skills = data.get("skills", [])
+    if not isinstance(skills, list):
+        raise SkillError(f"{path}: skills must be a list")
+    return [str(name) for name in skills]
+
+
+def _write_manifest(target_repo: Path, names: list[str]) -> None:
+    payload = {"source": MANIFEST_SOURCE, "skills": names}
+    (target_repo / MANIFEST_NAME).write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def vendor(
+    source_repo: Path,
+    target_repo: Path,
+    *,
+    prune: bool = False,
+    dry_run: bool = False,
+) -> list[str]:
+    source_repo = source_repo.resolve()
+    if not target_repo.exists():
+        raise SkillError(f"target does not exist: {target_repo}")
+    if not target_repo.is_dir():
+        raise SkillError(f"target is not a directory: {target_repo}")
+    target_repo = target_repo.resolve()
+    if target_repo == source_repo:
+        raise SkillError("refusing to vendor into the plugin repository")
+    skills = load_skills(source_repo / "automatis")
+    names = [skill.name for skill in skills]
+    logs: list[str] = []
+    previous = _read_manifest(target_repo)
+    to_prune = [name for name in previous if name not in names] if prune else []
+
+    def log(action: str, rel: str) -> None:
+        logs.append(f"{action} {rel}")
+
+    for skill in skills:
+        log("copy", f".agents/skills/{skill.name}/")
+        log("write", f".claude/commands/{skill.name}.md")
+    for name in to_prune:
+        log("prune", f".agents/skills/{name}/")
+        log("prune", f".claude/commands/{name}.md")
+    log("write", MANIFEST_NAME)
+    if dry_run:
+        return logs
+
+    agents = target_repo / ".agents" / "skills"
+    commands = target_repo / ".claude" / "commands"
+    agents.mkdir(parents=True, exist_ok=True)
+    commands.mkdir(parents=True, exist_ok=True)
+    for skill in skills:
+        dest = agents / skill.name
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(skill.directory, dest)
+        (commands / f"{skill.name}.md").write_text(
+            render_claude_command(skill), encoding="utf-8"
+        )
+    for name in to_prune:
+        dest = agents / name
+        if dest.exists():
+            shutil.rmtree(dest)
+        cmd = commands / f"{name}.md"
+        if cmd.exists():
+            cmd.unlink()
+    _write_manifest(target_repo, names)
+    return logs

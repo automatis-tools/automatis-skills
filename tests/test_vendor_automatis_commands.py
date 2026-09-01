@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.machinery
 import importlib.util
+import json
+import os
 import sys
 import tempfile
 import unittest
@@ -115,6 +117,115 @@ class LoadSkillTests(unittest.TestCase):
         )
         with self.assertRaises(self.v.SkillError):
             self.v.load_skill(d)
+
+
+def plugin_fixture(root: Path) -> Path:
+    plugin = root / "automatis"
+    write_skill(
+        plugin,
+        "automatis-fix-pr",
+        "---\nname: automatis-fix-pr\ndescription: Fix a PR\nargument-hint: \"[pr]\"\nallowed-tools: Bash, Read\n---\n\n# Fix PR\n\nDo the work.\n",
+    )
+    extra = plugin / "skills" / "automatis-fix-pr" / "scripts"
+    extra.mkdir()
+    (extra / "helper.sh").write_text("echo ok\n", encoding="utf-8")
+    write_skill(
+        plugin,
+        "automatis-ports-release",
+        "---\nname: automatis-ports-release\ndescription: Free ports\n---\n\n# Ports\n",
+    )
+    return plugin
+
+
+class VendorTests(unittest.TestCase):
+    def setUp(self):
+        self.v = load_vendor()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.source = self.root / "source"
+        self.target = self.root / "product"
+        self.source.mkdir()
+        self.target.mkdir()
+        plugin_fixture(self.source)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_render_omits_name(self):
+        skill = self.v.load_skill(
+            self.source / "automatis" / "skills" / "automatis-fix-pr"
+        )
+        rendered = self.v.render_claude_command(skill)
+        self.assertTrue(rendered.startswith("---\n"))
+        self.assertIn("description: Fix a PR\n", rendered)
+        self.assertIn("argument-hint: [pr]\n", rendered)
+        self.assertIn("allowed-tools: Bash, Read\n", rendered)
+        self.assertNotIn("\nname:", rendered)
+        self.assertIn("# Fix PR\n", rendered)
+
+    def test_vendor_writes_skills_commands_and_manifest(self):
+        logs = self.v.vendor(self.source, self.target)
+        self.assertTrue(any("automatis-fix-pr" in line for line in logs))
+        skill_dir = self.target / ".agents" / "skills" / "automatis-fix-pr"
+        self.assertTrue((skill_dir / "SKILL.md").is_file())
+        self.assertTrue((skill_dir / "scripts" / "helper.sh").is_file())
+        cmd = (self.target / ".claude" / "commands" / "automatis-fix-pr.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("description: Fix a PR", cmd)
+        self.assertNotIn("\nname:", cmd)
+        manifest = json.loads(
+            (self.target / ".automatis-commands.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(manifest["source"], "automatis-tools/claude-code-plugins")
+        self.assertEqual(
+            manifest["skills"],
+            ["automatis-fix-pr", "automatis-ports-release"],
+        )
+
+    def test_vendor_refuses_missing_and_self(self):
+        with self.assertRaises(self.v.SkillError):
+            self.v.vendor(self.source, self.root / "nope")
+        with self.assertRaises(self.v.SkillError):
+            self.v.vendor(self.source, self.source)
+
+    def test_dry_run_writes_nothing(self):
+        self.v.vendor(self.source, self.target, dry_run=True)
+        self.assertFalse((self.target / ".agents").exists())
+        self.assertFalse((self.target / ".automatis-commands.json").exists())
+
+    def test_leaves_unmanaged_files(self):
+        other = self.target / ".agents" / "skills" / "team-other"
+        other.mkdir(parents=True)
+        (other / "SKILL.md").write_text("# other\n", encoding="utf-8")
+        extra_cmd = self.target / ".claude" / "commands"
+        extra_cmd.mkdir(parents=True)
+        (extra_cmd / "local-cmd.md").write_text("# local\n", encoding="utf-8")
+        self.v.vendor(self.source, self.target)
+        self.assertTrue((other / "SKILL.md").is_file())
+        self.assertTrue((extra_cmd / "local-cmd.md").is_file())
+
+    def test_prune_removes_dropped_managed_names_only(self):
+        self.v.vendor(self.source, self.target)
+        dropped = self.target / ".agents" / "skills" / "automatis-old"
+        dropped.mkdir(parents=True)
+        (dropped / "SKILL.md").write_text("x\n", encoding="utf-8")
+        old_cmd = self.target / ".claude" / "commands" / "automatis-old.md"
+        old_cmd.write_text("x\n", encoding="utf-8")
+        manifest_path = self.target / ".automatis-commands.json"
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        data["skills"].append("automatis-old")
+        manifest_path.write_text(json.dumps(data), encoding="utf-8")
+        other = self.target / ".agents" / "skills" / "team-other"
+        other.mkdir(parents=True)
+        (other / "SKILL.md").write_text("# other\n", encoding="utf-8")
+        self.v.vendor(self.source, self.target, prune=True)
+        self.assertFalse(dropped.exists())
+        self.assertFalse(old_cmd.exists())
+        self.assertTrue((other / "SKILL.md").is_file())
+        self.assertTrue(
+            (self.target / ".agents" / "skills" / "automatis-fix-pr" / "SKILL.md").is_file()
+        )
 
 
 if __name__ == "__main__":
