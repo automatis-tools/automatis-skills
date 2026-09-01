@@ -67,7 +67,7 @@ Commit those files in the product repo. Re-run the script when a command changes
 This repo remains a Claude Code marketplace. Installing the plugin copies skills; it does **not** register `/automatis-fix-pr` on Claude (plugin components are colon-namespaced). Product repos should vendor as above.
 
 ```bash
-/plugin marketplace add automatis-tools/claude-code-plugins
+/plugin marketplace add automatis-tools/automatis-skills
 /plugin install automatis@automatis-tools
 ```
 

@@ -95,7 +95,7 @@ def load_skill(directory: Path) -> Skill:
 
 COMMAND_KEYS = ("description", "argument-hint", "allowed-tools")
 MANIFEST_NAME = ".automatis-commands.json"
-MANIFEST_SOURCE = "automatis-tools/claude-code-plugins"
+MANIFEST_SOURCE = "automatis-tools/automatis-skills"
 
 
 def load_skills(plugin_root: Path) -> list[Skill]:

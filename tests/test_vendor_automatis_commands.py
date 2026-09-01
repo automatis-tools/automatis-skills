@@ -178,7 +178,7 @@ class VendorTests(unittest.TestCase):
         manifest = json.loads(
             (self.target / ".automatis-commands.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(manifest["source"], "automatis-tools/claude-code-plugins")
+        self.assertEqual(manifest["source"], "automatis-tools/automatis-skills")
         self.assertEqual(
             manifest["skills"],
             ["automatis-fix-pr", "automatis-ports-release"],

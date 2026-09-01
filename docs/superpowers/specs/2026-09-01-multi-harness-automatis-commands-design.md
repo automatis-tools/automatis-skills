@@ -152,7 +152,7 @@ Manifest shape:
 
 ```json
 {
-  "source": "automatis-tools/claude-code-plugins",
+  "source": "automatis-tools/automatis-skills",
   "skills": [
     "automatis-fix-pr",
     "automatis-ports-release",
