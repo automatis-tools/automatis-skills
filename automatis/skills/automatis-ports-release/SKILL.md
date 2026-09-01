@@ -1,4 +1,5 @@
 ---
+name: automatis-ports-release
 description: Release port conflicts on macOS by killing the offending process
 argument-hint: "[port] [port...]"
 allowed-tools: Bash
@@ -17,10 +18,12 @@ Detect, diagnose, and release port conflicts on macOS. Works for any project by 
 
 ## Arguments
 
+Invoke as `/automatis-ports-release` (Codex: `$automatis-ports-release`).
+
 The user can provide port number(s) as arguments:
-- `/automatis:ports-release 8000` - Check single port
-- `/automatis:ports-release 8000 8001 8080` - Check multiple ports
-- `/automatis:ports-release` - Ask user which port(s) to check
+- `/automatis-ports-release 8000` - Check single port
+- `/automatis-ports-release 8000 8001 8080` - Check multiple ports
+- `/automatis-ports-release` - Ask user which port(s) to check
 
 ## Procedure
 

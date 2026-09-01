@@ -1,4 +1,5 @@
 ---
+name: automatis-git-cleanup
 description: Clean up local git branches — create PRs for unmerged work, delete merged/gone branches, end on up-to-date main
 argument-hint: "[--dry-run] [--no-pr]"
 allowed-tools: Bash
@@ -21,11 +22,13 @@ See `CLAUDE.md` → **Shell Safety** at the repo root. Copy the bash/Python bloc
 
 ## Arguments
 
+Invoke as `/automatis-git-cleanup` (Codex: `$automatis-git-cleanup`).
+
 The user can provide:
-- `/automatis:git-cleanup` — interactive mode, prompts for confirmation at each decision
-- `/automatis:git-cleanup --dry-run` — print the categorization and exit; no mutations
-- `/automatis:git-cleanup --no-pr` — skip PR creation for unmerged branches (still categorize and delete where safe)
-- `/automatis:git-cleanup --dry-run --no-pr` — flags combine
+- `/automatis-git-cleanup` — interactive mode, prompts for confirmation at each decision
+- `/automatis-git-cleanup --dry-run` — print the categorization and exit; no mutations
+- `/automatis-git-cleanup --no-pr` — skip PR creation for unmerged branches (still categorize and delete where safe)
+- `/automatis-git-cleanup --dry-run --no-pr` — flags combine
 
 ## Procedure
 
@@ -38,7 +41,7 @@ if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --o
   echo "Working tree is dirty:"
   git status --short
   echo ""
-  echo "Stash or commit your changes first, then re-run /automatis:git-cleanup."
+  echo "Stash or commit your changes first, then re-run /automatis-git-cleanup."
   exit 1
 fi
 ```
@@ -277,7 +280,7 @@ Report:
 ## Example Session
 
 ```
-User: /automatis:git-cleanup
+User: /automatis-git-cleanup
 
 Claude: Main branch: main
 Fetching origin with --prune...

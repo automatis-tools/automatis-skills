@@ -1,4 +1,5 @@
 ---
+name: automatis-fix-pr
 description: Fix open review comments on a GitHub PR
 argument-hint: "[pr-url | pr-number] [--review=ID] [--severity=high,medium,low,critical]"
 allowed-tools: Bash, Read, Edit, Grep, Glob
@@ -20,10 +21,12 @@ See `CLAUDE.md` → **Shell Safety** at the repo root. Copy the bash/Python bloc
 
 ## Arguments
 
+Invoke as `/automatis-fix-pr` (Codex: `$automatis-fix-pr`).
+
 The user can provide:
-- `/automatis:fix-pr https://github.com/owner/repo/pull/123` - Full PR URL
-- `/automatis:fix-pr 123` - PR number (uses current repo)
-- `/automatis:fix-pr` - Prompts for PR URL or number
+- `/automatis-fix-pr https://github.com/owner/repo/pull/123` - Full PR URL
+- `/automatis-fix-pr 123` - PR number (uses current repo)
+- `/automatis-fix-pr` - Prompts for PR URL or number
 
 Optional flags in the argument:
 - `--review=ID` - Focus on specific review ID
@@ -221,7 +224,7 @@ Report:
 ## Example Session
 
 ```
-User: /automatis:fix-pr https://github.com/owner/repo/pull/4
+User: /automatis-fix-pr https://github.com/owner/repo/pull/4
 
 Claude: 3 unresolved comments in review #3684614038:
   MEDIUM × 1 (pool.go:339)
