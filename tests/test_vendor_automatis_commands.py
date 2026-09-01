@@ -228,5 +228,109 @@ class VendorTests(unittest.TestCase):
         )
 
 
+import io
+from contextlib import redirect_stderr, redirect_stdout
+from unittest import mock
+
+
+def write_json(path: Path, data) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def complete_source(source: Path) -> None:
+    write_json(
+        source / ".claude-plugin" / "marketplace.json",
+        {
+            "name": "automatis-tools",
+            "plugins": [{"name": "automatis", "source": "./automatis"}],
+        },
+    )
+    write_json(
+        source / "automatis" / ".claude-plugin" / "plugin.json",
+        {"name": "automatis", "version": "1.0.0"},
+    )
+
+
+class CheckRepoTests(unittest.TestCase):
+    def setUp(self):
+        self.v = load_vendor()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.source = Path(self.tmp.name) / "source"
+        self.source.mkdir()
+        plugin_fixture(self.source)
+        complete_source(self.source)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_check_ok(self):
+        self.assertEqual(self.v.check_repo(self.source), [])
+
+    def test_check_rejects_commands_dir(self):
+        (self.source / "automatis" / "commands").mkdir()
+        (self.source / "automatis" / "commands" / "fix-pr.md").write_text("x\n")
+        errors = self.v.check_repo(self.source)
+        self.assertTrue(any("commands" in e for e in errors))
+
+    def test_check_rejects_bad_source(self):
+        write_json(
+            self.source / ".claude-plugin" / "marketplace.json",
+            {
+                "name": "automatis-tools",
+                "plugins": [{"name": "automatis", "source": "automatis"}],
+            },
+        )
+        errors = self.v.check_repo(self.source)
+        self.assertTrue(any("source" in e for e in errors))
+
+
+class MainTests(unittest.TestCase):
+    def setUp(self):
+        self.v = load_vendor()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.source = Path(self.tmp.name) / "source"
+        self.target = Path(self.tmp.name) / "product"
+        self.source.mkdir()
+        self.target.mkdir()
+        plugin_fixture(self.source)
+        complete_source(self.source)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_main(self, args):
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        with mock.patch.object(self.v, "SOURCE_REPO", self.source):
+            with redirect_stderr(stderr), redirect_stdout(stdout):
+                code = self.v.main(args)
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    def test_usage_without_args(self):
+        code, _, err = self.run_main([])
+        self.assertEqual(code, 1)
+        self.assertIn("usage", err.lower())
+
+    def test_check_ok_and_fail(self):
+        code, _, err = self.run_main(["--check"])
+        self.assertEqual(code, 0)
+        (self.source / "automatis" / "commands").mkdir()
+        code, _, err = self.run_main(["--check"])
+        self.assertEqual(code, 1)
+        self.assertTrue(err)
+
+    def test_check_rejects_extra_path(self):
+        code, _, err = self.run_main(["--check", str(self.target)])
+        self.assertEqual(code, 1)
+
+    def test_vendor_via_main(self):
+        code, out, err = self.run_main([str(self.target)])
+        self.assertEqual(code, 0, err)
+        self.assertTrue(
+            (self.target / ".claude" / "commands" / "automatis-fix-pr.md").is_file()
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

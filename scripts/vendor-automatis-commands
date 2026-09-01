@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -185,3 +187,87 @@ def vendor(
             cmd.unlink()
     _write_manifest(target_repo, names)
     return logs
+
+
+SOURCE_REPO = Path(__file__).resolve().parent.parent
+
+
+def check_repo(repo_root: Path) -> list[str]:
+    errors: list[str] = []
+    marketplace = repo_root / ".claude-plugin" / "marketplace.json"
+    plugin = repo_root / "automatis" / ".claude-plugin" / "plugin.json"
+    try:
+        market = json.loads(marketplace.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"invalid marketplace.json: {exc}")
+        market = None
+    try:
+        json.loads(plugin.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"invalid plugin.json: {exc}")
+    if isinstance(market, dict):
+        plugins = market.get("plugins", [])
+        if not plugins:
+            errors.append("marketplace.json has no plugins")
+        for entry in plugins:
+            src = entry.get("source", "")
+            name = entry.get("name", "?")
+            if not isinstance(src, str) or not src.startswith("./"):
+                errors.append(
+                    f"plugin {name!r}: source must use './<dir>' form (got {src!r})"
+                )
+                continue
+            root = repo_root / src[2:]
+            if not root.is_dir():
+                errors.append(f"plugin {name!r}: source dir {root} does not exist")
+            manifest = root / ".claude-plugin" / "plugin.json"
+            if not manifest.is_file():
+                errors.append(f"plugin {name!r}: missing {manifest}")
+    commands = repo_root / "automatis" / "commands"
+    if commands.exists():
+        errors.append("legacy automatis/commands/ must not exist")
+    try:
+        load_skills(repo_root / "automatis")
+    except SkillError as exc:
+        errors.append(str(exc))
+    return errors
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="vendor-automatis-commands",
+        description="Vendor Automatis skills into a product repo.",
+    )
+    parser.add_argument("product_repo", nargs="?", type=Path)
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--prune", action="store_true")
+    args = parser.parse_args(argv)
+    if args.check:
+        if args.product_repo is not None:
+            print("usage: --check does not take a product repo", file=sys.stderr)
+            return 1
+        errors = check_repo(SOURCE_REPO)
+        for item in errors:
+            print(item, file=sys.stderr)
+        return 1 if errors else 0
+    if args.product_repo is None:
+        parser.print_usage(sys.stderr)
+        return 1
+    try:
+        logs = vendor(
+            SOURCE_REPO,
+            args.product_repo,
+            prune=args.prune,
+            dry_run=args.dry_run,
+        )
+    except SkillError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    for line in logs:
+        print(line)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
