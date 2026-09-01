@@ -255,6 +255,24 @@ class VendorTests(unittest.TestCase):
         )
         self.assertEqual(manifest["skills"], ["automatis-fix-pr"])
 
+    def test_vendor_rejects_empty_skills(self):
+        shutil.rmtree(self.source / "automatis" / "skills")
+        with self.assertRaises(self.v.SkillError) as ctx:
+            self.v.vendor(self.source, self.target)
+        self.assertIn("no Automatis skills", str(ctx.exception))
+
+    def test_vendor_rejects_invalid_manifest_json(self):
+        (self.target / ".automatis-commands.json").write_text("{not json\n", encoding="utf-8")
+        with self.assertRaises(self.v.SkillError) as ctx:
+            self.v.vendor(self.source, self.target)
+        self.assertIn("invalid JSON", str(ctx.exception))
+
+    def test_vendor_rejects_non_object_manifest(self):
+        (self.target / ".automatis-commands.json").write_text("[]\n", encoding="utf-8")
+        with self.assertRaises(self.v.SkillError) as ctx:
+            self.v.vendor(self.source, self.target)
+        self.assertIn("JSON object", str(ctx.exception))
+
 
 import io
 from contextlib import redirect_stderr, redirect_stdout
@@ -312,6 +330,11 @@ class CheckRepoTests(unittest.TestCase):
         errors = self.v.check_repo(self.source)
         self.assertTrue(any("source" in e for e in errors))
 
+    def test_check_rejects_empty_skills(self):
+        shutil.rmtree(self.source / "automatis" / "skills")
+        errors = self.v.check_repo(self.source)
+        self.assertTrue(any("no Automatis skills" in e for e in errors))
+
 
 class MainTests(unittest.TestCase):
     def setUp(self):
@@ -358,6 +381,12 @@ class MainTests(unittest.TestCase):
         self.assertTrue(
             (self.target / ".claude" / "commands" / "automatis-fix-pr.md").is_file()
         )
+
+
+class HookTests(unittest.TestCase):
+    def test_pre_push_uses_bash(self):
+        text = (REPO / ".githooks" / "pre-push").read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("#!/usr/bin/env bash\n"))
 
 
 if __name__ == "__main__":

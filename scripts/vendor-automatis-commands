@@ -39,7 +39,6 @@ def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
         raise FrontmatterError("missing closing ---")
     raw_fields = rest[:end]
     body = rest[end + 4 :]
-    # Drop the newline that ends the closing --- line, then an optional blank line.
     if body.startswith("\n"):
         body = body[1:]
     if body.startswith("\n"):
@@ -118,7 +117,12 @@ def _read_manifest(target_repo: Path) -> list[str]:
     path = target_repo / MANIFEST_NAME
     if not path.is_file():
         return []
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SkillError(f"{path}: invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SkillError(f"{path}: manifest must be a JSON object")
     skills = data.get("skills", [])
     if not isinstance(skills, list):
         raise SkillError(f"{path}: skills must be a list")
@@ -148,6 +152,8 @@ def vendor(
     if target_repo == source_repo:
         raise SkillError("refusing to vendor into the plugin repository")
     skills = load_skills(source_repo / "automatis")
+    if not skills:
+        raise SkillError("no Automatis skills found under automatis/skills/")
     names = [skill.name for skill in skills]
     logs: list[str] = []
     previous = _read_manifest(target_repo)
@@ -232,9 +238,12 @@ def check_repo(repo_root: Path) -> list[str]:
     if commands.exists():
         errors.append("legacy automatis/commands/ must not exist")
     try:
-        load_skills(repo_root / "automatis")
+        skills = load_skills(repo_root / "automatis")
     except SkillError as exc:
         errors.append(str(exc))
+        return errors
+    if not skills:
+        errors.append("no Automatis skills found under automatis/skills/")
     return errors
 
 
