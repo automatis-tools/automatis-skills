@@ -1,0 +1,5 @@
+#!/bin/sh
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+python3 -m unittest discover -s tests -v
+exec ./scripts/vendor-automatis-commands --check
