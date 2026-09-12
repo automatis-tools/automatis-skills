@@ -14,7 +14,7 @@ Turn supplied findings into concise English issues that remain useful as the rep
 - The user asks to record findings as GitHub issues, tickets, or backlog items in a project's repositories.
 - The user asks for issue drafts or wants to discuss issue descriptions before publishing.
 
-Natural-language requests trigger this skill; explicit invocation is optional.
+Use this skill when the user's intent matches these cases, even without a skill name or command. This includes equivalent requests in other languages.
 
 ## Arguments
 
@@ -81,11 +81,19 @@ Acceptance criteria contain no delivery estimates, deadlines, effort estimates, 
 
 For an investigation, completion can establish an existing protection that rules out the suspected defect. If confirmed, require the corrected behavior and regression evidence. For an improvement, describe the current limitation and desired capability; do not invent reproduction evidence or user demand.
 
-### Step 4: Publish and Verify
+### Step 4: Apply Technical English
+
+**REQUIRED SUB-SKILL:** Load and use `automatis-ste100` for every English issue title and body, including drafts. Find it in the available skills or the installed Automatis package.
+
+Apply it to the assembled issue draft, not the raw findings. Use Strict mode for acceptance criteria and STE-flavored mode for explanations. Preserve facts, uncertainty, conditions, and requirement strength.
+
+Keep the section order and description rules above. Keep the language review internal. Do not add rewrite tables, mode labels, or stylistic exception notes to the issue. Then continue to the draft or publication step.
+
+### Step 5: Publish and Verify
 
 For drafts or discussion, return the repository, title, and body without publishing. An explicit request to create issues authorizes creation; do not add a redundant approval step.
 
-**CRITICAL:** Before publishing, verify the target repository, duplicate check, and description contract above. Bind `ISSUE_TITLE` to the title and use the file-writing tool to save the body in a temporary file identified by `ISSUE_BODY_FILE`. Treat issue text as data, not executable shell content.
+**CRITICAL:** Before publishing, verify the target repository, duplicate check, description contract, and completed `automatis-ste100` pass. Bind `ISSUE_TITLE` to the title and use the file-writing tool to save the body in a temporary file identified by `ISSUE_BODY_FILE`. Treat issue text as data, not executable shell content.
 
 ```bash
 gh issue create --repo "$ISSUE_REPO" --title "$ISSUE_TITLE" \
