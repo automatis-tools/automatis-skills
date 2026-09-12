@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Archive owned legacy copies after native Automatis plugins are installed."""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import stat
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
+
+MANIFEST_NAME = ".automatis-commands.json"
+MANIFEST_SOURCE = "automatis-tools/automatis-skills"
+BACKUP_DIRECTORY = ".automatis-migration-backups"
+SKILL_NAME = re.compile(r"automatis-[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+class MigrationError(ValueError):
+    pass
+
+
+class RollbackError(MigrationError):
+    def __init__(self, original_error, rollback_errors, backup):
+        self.original_error = original_error
+        self.rollback_errors = rollback_errors
+        self.backup = backup
+        details = "; ".join(f"{path}: {error}" for path, error in rollback_errors)
+        super().__init__(
+            f"Migration failed: {original_error}. Rollback incomplete: {details}. "
+            f"Preserved backup for recovery: {backup}"
+        )
+
+
+def path_mode(path: Path) -> int | None:
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return None
+    if stat.S_ISLNK(mode):
+        raise MigrationError(f"refusing symlink: {path}")
+    return mode
+
+
+def directory_chain(path: Path, *, allow_missing: bool = False) -> bool:
+    """Validate from the filesystem root so no parent symlink is followed."""
+    for parent in reversed((path, *path.parents)):
+        mode = path_mode(parent)
+        if mode is None:
+            if allow_missing:
+                return False
+            raise MigrationError(f"directory does not exist: {parent}")
+        if not stat.S_ISDIR(mode):
+            raise MigrationError(f"not a directory: {parent}")
+    return True
+
+
+def source_exists(path: Path, *, directory: bool) -> bool:
+    if not directory_chain(path.parent, allow_missing=True):
+        return False
+    mode = path_mode(path)
+    if mode is None:
+        return False
+    valid = stat.S_ISDIR(mode) if directory else stat.S_ISREG(mode)
+    if not valid:
+        expected = "directory" if directory else "regular file"
+        raise MigrationError(f"expected a {expected}: {path}")
+    return True
+
+
+def read_manifest(path: Path) -> list[str]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise MigrationError(f"{path}: invalid JSON: {error}") from error
+    if not isinstance(data, dict):
+        raise MigrationError(f"{path}: manifest must be a JSON object")
+    if data.get("source") != MANIFEST_SOURCE:
+        raise MigrationError(f"{path}: source must be {MANIFEST_SOURCE!r}")
+    names = data.get("skills")
+    if not isinstance(names, list):
+        raise MigrationError(f"{path}: skills must be a list")
+    seen = set()
+    for name in names:
+        if not isinstance(name, str) or SKILL_NAME.fullmatch(name) is None:
+            raise MigrationError(f"{path}: invalid skill name: {name!r}")
+        if name in seen:
+            raise MigrationError(f"{path}: duplicate skill name: {name!r}")
+        seen.add(name)
+    return names
+
+
+def migrate(target: Path, *, dry_run: bool = False) -> list[str]:
+    """Move only owned legacy paths, without installing or activating plugins."""
+    target = target.absolute()
+    directory_chain(target)
+    manifest = target / MANIFEST_NAME
+    if not source_exists(manifest, directory=False):
+        return [f"No migration needed: {manifest} does not exist."]
+    names = read_manifest(manifest)
+
+    # Validate every source and destination parent before creating any directory.
+    sources = []
+    for name in names:
+        for relative, directory in (
+            (Path(".agents") / "skills" / name, True),
+            (Path(".claude") / "commands" / f"{name}.md", False),
+        ):
+            if source_exists(target / relative, directory=directory):
+                sources.append(relative)
+    sources.append(Path(MANIFEST_NAME))  # Ownership moves only after all copies.
+    backup_root = target / BACKUP_DIRECTORY
+    directory_chain(backup_root, allow_missing=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    backup = backup_root / f"{timestamp}-{uuid4().hex[:8]}"
+    if path_mode(backup) is not None:
+        raise MigrationError(f"backup already exists: {backup}")
+
+    if dry_run:
+        return [f"Dry run: would archive to {backup}"] + [
+            f"would move {relative}" for relative in sources
+        ]
+
+    backup_root.mkdir(mode=0o700, exist_ok=True)
+    backup.mkdir(mode=0o700)
+    for relative in sources:
+        (backup / relative).parent.mkdir(parents=True, exist_ok=True)
+
+    completed = []
+    try:
+        for relative in sources:
+            source = target / relative
+            destination = backup / relative
+            # Rename keeps the original content, metadata, and nested links intact.
+            # There is deliberately no copy/delete fallback across filesystems.
+            os.rename(source, destination)
+            completed.append(relative)
+    except BaseException as original_error:
+        rollback_errors = []
+        for relative in reversed(completed):
+            source = backup / relative
+            destination = target / relative
+            try:
+                directory_chain(destination.parent)
+                if path_mode(destination) is not None:
+                    raise MigrationError(f"refusing to overwrite during rollback: {destination}")
+                os.rename(source, destination)
+            except BaseException as rollback_error:
+                rollback_errors.append((relative, rollback_error))
+        if rollback_errors:
+            raise RollbackError(original_error, rollback_errors, backup) from original_error
+        # Leave empty backup directories; never risk deleting preserved content.
+        raise
+
+    return [f"Archived legacy Automatis copies to {backup}"] + [
+        f"moved {relative}" for relative in sources
+    ]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Archive manifest-owned legacy Automatis copies into a dated backup. "
+            "Install and verify native plugins first; this tool does not install or activate them."
+        ),
+    )
+    parser.add_argument("target", type=Path, help="user home or product repository with the ownership manifest")
+    parser.add_argument("--dry-run", action="store_true", help="validate and show planned moves without writing")
+    args = parser.parse_args(argv)
+    try:
+        messages = migrate(args.target, dry_run=args.dry_run)
+    except (MigrationError, OSError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    for message in messages:
+        print(message)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,233 @@
+#!/usr/bin/env python3
+"""Validate native packages and build the generated Gemini release archive."""
+from __future__ import annotations
+
+import argparse
+import gzip
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+import re
+import stat
+import sys
+import tarfile
+import tempfile
+from pathlib import Path
+
+
+# --check must not create an import cache in the repository.
+sys.dont_write_bytecode = True
+SOURCE_REPO = Path(__file__).resolve().parent.parent
+VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
+SKILL_NAME = re.compile(r"automatis-[a-z0-9]+(?:-[a-z0-9]+)*")
+PACKAGE_MANIFESTS = (
+    "automatis/.claude-plugin/plugin.json",
+    "automatis/.codex-plugin/plugin.json",
+    "gemini-extension.json",
+)
+
+
+def load_vendor():
+    path = Path(__file__).with_name("vendor-automatis-commands")
+    loader = importlib.machinery.SourceFileLoader("automatis_release_vendor", str(path))
+    spec = importlib.util.spec_from_file_location(loader.name, path, loader=loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    loader.exec_module(module)
+    return module
+
+
+vendor = load_vendor()
+
+
+class ReleaseError(ValueError):
+    pass
+
+
+def validate_source(path: Path, repo: Path) -> os.stat_result:
+    """Only ordinary files/directories below the source root can enter a release."""
+    relative = path.relative_to(repo)
+    current = repo
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ReleaseError(f"refusing symlink in release source: {current}")
+    if not path.resolve().is_relative_to(repo):
+        raise ReleaseError(f"release source escapes repository: {path}")
+    metadata = path.stat()
+    if not (stat.S_ISREG(metadata.st_mode) or stat.S_ISDIR(metadata.st_mode)):
+        raise ReleaseError(f"release source must be a regular file or directory: {path}")
+    return metadata
+
+
+def collect_tree(directory: Path, repo: Path) -> list[Path]:
+    validate_source(directory, repo)
+    paths = [directory]
+    for child in sorted(directory.iterdir()):
+        metadata = validate_source(child, repo)
+        if stat.S_ISDIR(metadata.st_mode):
+            paths.extend(collect_tree(child, repo))
+        else:
+            paths.append(child)
+    return paths
+
+
+def read_manifest(repo: Path, relative: str) -> dict:
+    path = repo / relative
+    validate_source(path, repo)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeError) as exc:
+        raise ReleaseError(f"{relative}: invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ReleaseError(f"{relative}: manifest must be a JSON object")
+    return data
+
+
+def validate_marketplace(repo: Path, relative: str, expected_source: object) -> None:
+    data = read_manifest(repo, relative)
+    if data.get("name") != "automatis-tools":
+        raise ReleaseError(f"{relative}: marketplace name must be 'automatis-tools'")
+    plugins = data.get("plugins")
+    if not isinstance(plugins, list) or len(plugins) != 1:
+        raise ReleaseError(f"{relative}: marketplace must contain only the automatis plugin")
+    plugin = plugins[0]
+    if not isinstance(plugin, dict) or plugin.get("name") != "automatis":
+        raise ReleaseError(f"{relative}: marketplace plugin name must be 'automatis'")
+    if plugin.get("source") != expected_source:
+        raise ReleaseError(f"{relative}: marketplace source must be {expected_source!r}")
+
+
+def validate_package(repo: Path, tag: str | None = None) -> tuple[str, list, list[Path]]:
+    versions = {}
+    for relative in PACKAGE_MANIFESTS:
+        manifest = read_manifest(repo, relative)
+        if manifest.get("name") != "automatis":
+            raise ReleaseError(f"{relative}: package name must be 'automatis'")
+        version = manifest.get("version")
+        if not isinstance(version, str) or VERSION.fullmatch(version) is None:
+            raise ReleaseError(f"{relative}: version must be stable semver (for example 1.1.0)")
+        versions[relative] = version
+    if len(set(versions.values())) != 1:
+        raise ReleaseError(f"native package versions must match: {versions}")
+    version = next(iter(versions.values()))
+    if tag is not None and tag != version:
+        raise ReleaseError(f"release tag {tag!r} must equal package version {version!r}")
+    validate_marketplace(repo, ".claude-plugin/marketplace.json", "./automatis")
+    validate_marketplace(
+        repo, ".agents/plugins/marketplace.json", {"source": "local", "path": "./automatis"}
+    )
+    legacy_commands = repo / "automatis/commands"
+    if legacy_commands.exists() or legacy_commands.is_symlink():
+        raise ReleaseError("legacy automatis/commands/ must not exist; Gemini aliases are generated")
+
+    skills_root = repo / "automatis/skills"
+    if not skills_root.exists() and not skills_root.is_symlink():
+        raise ReleaseError("no Automatis skills found under automatis/skills/")
+    paths = collect_tree(skills_root, repo)
+    skills = vendor.load_skills(repo / "automatis")
+    if not skills:
+        raise ReleaseError("no Automatis skills found under automatis/skills/")
+    skill_directories = {skill.directory for skill in skills}
+    for child in skills_root.iterdir():
+        if child.is_dir() and child not in skill_directories:
+            raise ReleaseError(f"skill directory is missing SKILL.md: {child}")
+    for skill in skills:
+        if SKILL_NAME.fullmatch(skill.name) is None:
+            raise ReleaseError(f"invalid canonical skill name: {skill.name!r}")
+    # Only canonical skill trees belong in the archive, not loose source-root files.
+    paths = [
+        path for path in paths
+        if any(path == directory or directory in path.parents for directory in skill_directories)
+    ]
+    license_path = repo / "LICENSE"
+    if license_path.exists() or license_path.is_symlink():
+        if not stat.S_ISREG(validate_source(license_path, repo).st_mode):
+            raise ReleaseError("LICENSE must be a regular file")
+        paths.append(license_path)
+    return version, skills, paths
+
+
+def render_gemini_command(skill) -> bytes:
+    prompt = (
+        f'Call activate_skill with {{"name": "{skill.name}"}}.\n'
+        "Follow the activated skill's instructions for this request.\n\n"
+        "User arguments:\n{{args}}\n"
+    )
+    # TOML basic strings share JSON escaping, except DEL must also be escaped.
+    # Keep Unicode literal: JSON surrogate-pair escapes are invalid in TOML.
+    description = json.dumps(skill.fields["description"], ensure_ascii=False).replace("\x7f", "\\u007f")
+    return (
+        f"description = {description}\n"
+        f"prompt = {json.dumps(prompt, ensure_ascii=False)}\n"
+    ).encode("utf-8")
+
+
+def add_entry(tar: tarfile.TarFile, name: str, data: bytes | None, mode: int) -> None:
+    info = tarfile.TarInfo(name)
+    info.mode = mode
+    info.mtime = 0
+    if data is None:
+        info.type = tarfile.DIRTYPE
+        tar.addfile(info)
+    else:
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+
+
+def build_archive(repo: Path, output: Path, skills: list, paths: list[Path]) -> Path:
+    if output.resolve().is_relative_to(repo / "automatis/skills"):
+        raise ReleaseError("release output must be outside canonical skills/")
+    output.mkdir(parents=True, exist_ok=True)
+    archive = output / "automatis.tar.gz"
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=output, prefix=".automatis-", suffix=".tar.gz", delete=False) as raw:
+            temporary = Path(raw.name)
+            with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as compressed:
+                with tarfile.open(fileobj=compressed, mode="w", format=tarfile.PAX_FORMAT) as tar:
+                    manifest = repo / "gemini-extension.json"
+                    validate_source(manifest, repo)
+                    add_entry(tar, "gemini-extension.json", manifest.read_bytes(), 0o644)
+                    add_entry(tar, "skills", None, 0o755)
+                    for path in sorted(paths):
+                        metadata = validate_source(path, repo)
+                        name = "LICENSE" if path == repo / "LICENSE" else path.relative_to(repo / "automatis").as_posix()
+                        if stat.S_ISDIR(metadata.st_mode):
+                            add_entry(tar, name, None, 0o755)
+                        else:
+                            mode = 0o755 if metadata.st_mode & 0o111 else 0o644
+                            add_entry(tar, name, path.read_bytes(), mode)
+                    add_entry(tar, "commands", None, 0o755)
+                    for skill in skills:
+                        add_entry(tar, f"commands/{skill.name}.toml", render_gemini_command(skill), 0o644)
+        temporary.replace(archive)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return archive
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="validate the release without writing files")
+    parser.add_argument("--tag", help="require the release tag to equal the package version")
+    parser.add_argument("--output", type=Path, default=Path("dist"), help="archive output directory (default: dist)")
+    args = parser.parse_args(argv)
+    try:
+        version, skills, paths = validate_package(SOURCE_REPO, args.tag)
+        if args.check:
+            print(f"Validated automatis {version}: {len(skills)} skills")
+        else:
+            archive = build_archive(SOURCE_REPO, args.output, skills, paths)
+            print(f"Built {archive} (automatis {version}, {len(skills)} skills)")
+    except (ReleaseError, vendor.SkillError, OSError, UnicodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

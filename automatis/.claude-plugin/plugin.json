@@ -1,7 +1,7 @@
 {
   "name": "automatis",
-  "version": "1.0.0",
-  "description": "Automatis team command toolbelt: fix GitHub PR review comments, release macOS port conflicts, clean up local git branches",
+  "version": "1.1.0",
+  "description": "Automatis skills for PR reviews, port conflicts, Git cleanup, and clear technical English",
   "author": { "name": "Automatis Tools" },
-  "keywords": ["pr", "review", "github", "port", "macos", "git", "productivity", "devops"]
+  "keywords": ["pr", "review", "github", "port", "macos", "git", "productivity", "devops", "ste100", "technical-writing"]
 }

@@ -17,3 +17,6 @@ jobs:
 
       - name: Check Automatis skills and manifests
         run: ./scripts/vendor-automatis-commands --check
+
+      - name: Build native release package
+        run: ./scripts/build-automatis-release --output "$RUNNER_TEMP/automatis-release"

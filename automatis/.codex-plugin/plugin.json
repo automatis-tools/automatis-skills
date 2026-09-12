@@ -1,0 +1,19 @@
+{
+  "name": "automatis",
+  "version": "1.1.0",
+  "description": "Automatis skills for PR reviews, port conflicts, Git cleanup, and clear technical English.",
+  "author": { "name": "Automatis Tools" },
+  "repository": "https://github.com/automatis-tools/automatis-skills",
+  "license": "MIT",
+  "keywords": ["pr", "review", "github", "git", "ste100", "technical-writing"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Automatis",
+    "shortDescription": "Engineering workflows and clear technical writing",
+    "longDescription": "Fix PR review comments, release macOS port conflicts, clean up Git branches, and clarify English documentation and agent handoffs.",
+    "developerName": "Automatis Tools",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": ["Clarify the English instructions in this agent handoff."]
+  }
+}
