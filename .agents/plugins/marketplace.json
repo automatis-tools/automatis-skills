@@ -1,0 +1,12 @@
+{
+  "name": "automatis-tools",
+  "interface": { "displayName": "Automatis Tools" },
+  "plugins": [
+    {
+      "name": "automatis",
+      "source": { "source": "local", "path": "./automatis" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -5,16 +5,16 @@
     "email": "team@automatis.tools"
   },
   "metadata": {
-    "description": "Automatis team commands for Claude Code, Grok, Codex, Gemini, and Kimi",
-    "version": "1.0.0"
+    "description": "Automatis skills for Claude Code, Grok, Codex, and Gemini",
+    "version": "1.1.0"
   },
   "plugins": [
     {
       "name": "automatis",
       "source": "./automatis",
-      "description": "Automatis team command toolbelt: fix GitHub PR review comments, release macOS port conflicts, clean up local git branches",
+      "description": "Automatis skills for PR reviews, port conflicts, Git cleanup, and clear technical English",
       "category": "productivity",
-      "tags": ["pr", "review", "github", "port", "macos", "git", "devops", "productivity"]
+      "tags": ["pr", "review", "github", "port", "macos", "git", "devops", "productivity", "ste100", "technical-writing"]
     }
   ]
 }

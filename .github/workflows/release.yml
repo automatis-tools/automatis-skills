@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags: ['[0-9]*.[0-9]*.[0-9]*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require a release commit from main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: Test
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Validate canonical skills
+        run: ./scripts/vendor-automatis-commands --check
+
+      - name: Build release package
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: ./scripts/build-automatis-release --tag "$RELEASE_TAG" --output dist
+
+      - name: Publish GitHub release with Gemini package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/automatis.tar.gz --verify-tag --title "$RELEASE_TAG" --generate-notes --latest

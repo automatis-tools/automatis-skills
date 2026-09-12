@@ -4,45 +4,60 @@ Guidance for Claude Code when working with this repository.
 
 ## Overview
 
-This is a **multi-harness skills repository** for the Automatis team. Commands are authored once as Agent Skills and vendored into each product repo. In a product repo, invoke `/automatis-<name>` (Codex: `$automatis-<name>`).
+This is a **multi-harness skills repository** for the Automatis team. Author Agent Skills once and distribute them through native plugins for Codex, Claude Code, and Grok, and a Gemini CLI extension. Product-repository vendoring remains an optional snapshot workflow.
 
-This repo remains a Claude Code marketplace (`automatis@automatis-tools`). The marketplace is the source package: `/plugin install` copies skills; it does **not** register `/automatis-<name>` on Claude (plugin components are colon-namespaced). Product repos get the hyphen slash command by vendoring. The colon form `/automatis:fix-pr` is retired.
+Install `automatis@automatis-tools` once through each host's native manager and enable automatic updates as described in README.md. Adding the marketplace alone does not install the plugin. Claude native skills are named `/automatis:automatis-<name>`; Codex uses `$automatis-<name>`, while Grok and the generated Gemini aliases use `/automatis-<name>`. A skill remains available for implicit agent selection from its description.
 
 The marketplace schema supports multiple plugins, but this one deliberately ships only `automatis` so team members get every command from a single source package.
 
 ## Structure
 
 ```
-.claude-plugin/
-└── marketplace.json              # Plugin catalog (one entry: automatis)
+.claude-plugin/marketplace.json    # Claude/Grok catalog (one entry: automatis)
+.agents/plugins/marketplace.json  # Codex catalog (same plugin source)
+gemini-extension.json             # Gemini manifest; skills/ is generated in release assets
 
 automatis/
 ├── .claude-plugin/plugin.json
+├── .codex-plugin/plugin.json
 └── skills/
     ├── automatis-fix-pr/SKILL.md          # → /automatis-fix-pr
     ├── automatis-ports-release/SKILL.md   # → /automatis-ports-release
-    └── automatis-git-cleanup/SKILL.md     # → /automatis-git-cleanup
+    ├── automatis-git-cleanup/SKILL.md
+    └── automatis-ste100/SKILL.md
 
 scripts/
-└── vendor-automatis-commands     # copy skills into product repos; --check validates this repo
+├── build-automatis-release       # validate versions and build Gemini release archive
+├── migrate-automatis-install     # archive manifest-owned legacy copies
+└── vendor-automatis-commands     # optional product snapshots; --check validates skills
 ```
 
-There is no `automatis/commands/`. Plugin `commands/` would produce `/automatis:<name>`.
+There is no `automatis/commands/`. Gemini command aliases are generated inside the release archive from canonical skills, never authored as a second source tree.
 
 ## Naming Convention
 
 - **Plugin**: always `automatis`. New commands go inside this plugin as skills — do not create sibling plugin directories unless there's a strong reason.
 - **Skills**: folder and frontmatter `name:` are `automatis-<action>` (kebab-case after the prefix): `automatis-fix-pr`, `automatis-ports-release`, `automatis-git-cleanup`.
-- **Usage** (in a product repo): `/automatis-<name>` (e.g. `/automatis-fix-pr`). Codex: `$automatis-<name>`.
+- **Usage**: use the host's registered name from README.md. Skill examples use canonical `/automatis-<name>` names; Claude's native plugin adds `/automatis:` before that name.
 
 ## Adding a Command (common case)
 
 1. Create `automatis/skills/automatis-<name>/SKILL.md` with `name: automatis-<name>` following the house style in [Skill File Structure](#skill-file-structure) below.
-2. Run `./scripts/vendor-automatis-commands --check`.
-3. Commit in this repo.
-4. In each product repo, run `./scripts/vendor-automatis-commands <product-repo>` from this checkout and commit the vendored files there.
+2. Run `./scripts/vendor-automatis-commands --check`, `./scripts/build-automatis-release --check`, and the unit tests.
+3. Commit in this repo and release through the native packaging workflow below. Installed plugins receive new skills through their host's update mechanism.
+4. Only for deliberately pinned product snapshots, vendor and commit the generated files in those repos.
 
-Deleting a command: remove the skill folder here, then run the vendor script with `--prune` in each product repo.
+Deleting a skill: remove its folder and publish a new version. Product snapshots require a vendor run with `--prune` to remove deleted names.
+
+## Native Packaging and Releases
+
+- Keep canonical content under `automatis/skills/`; preserve complete directories so relative resources remain available.
+- Codex uses `automatis/.codex-plugin/plugin.json` with `skills: "./skills/"`. Its catalog uses a structured local source pointing at `./automatis`, relative to the repository root.
+- Claude and Grok share `.claude-plugin/marketplace.json` and the existing plugin manifest.
+- Gemini's release archive contains root `gemini-extension.json`, generated `skills/`, and `commands/*.toml`. Install from the unpinned GitHub repository with `--auto-update`. Do not use a local directory install for production auto-updates.
+- Before releasing, bump all three package manifests to the same stable semantic version and update Claude marketplace metadata. Merge the reviewed release commit into `main`, then push a tag equal to the version (for example `1.1.0`). `.github/workflows/release.yml` validates and publishes the archive. Tags do not start with `v`.
+- Claude plugin cache updates depend on its version changing. Codex/Grok/Claude refresh the Git marketplace; Gemini checks GitHub releases. A release does not instantly replace skills already loaded into a running session.
+- Before retiring old installations, install and verify the native plugins. Then use `scripts/migrate-automatis-install` to archive only manifest-owned legacy paths. Do not remove skills by glob; preserve unrelated and untracked local files.
 
 ## Adding a Plugin (rare)
 
@@ -87,7 +102,7 @@ Each plugin can include:
 - `.mcp.json` - MCP server configs
 - `.lsp.json` - LSP server configs
 
-Do not add `automatis/commands/`. Plugin slash commands are colon-namespaced (`/automatis:<name>`); product repos get `/automatis-<name>` from vendored `.claude/commands/`.
+Do not add `automatis/commands/`. Claude plugin skills are colon-namespaced (`/automatis:automatis-<name>`); optional product snapshots get `/automatis-<name>` from vendored `.claude/commands/`.
 
 ### Skill File Structure
 
@@ -128,7 +143,13 @@ To verify a change:
    python3 -m unittest discover -s tests -v
    ```
 
-CI (`.github/workflows/lint.yml`) runs the same tests and `--check`.
+3. Validate native package versions and build the Gemini archive:
+   ```bash
+   ./scripts/build-automatis-release --check
+   ./scripts/build-automatis-release --output dist
+   ```
+
+CI (`.github/workflows/lint.yml`) runs the tests, vendor validation, and release builder.
 
 ## Git hooks
 
@@ -138,4 +159,4 @@ Point this worktree at the tracked hooks so pre-push runs `--check`:
 git config core.hooksPath .githooks
 ```
 
-`.githooks/pre-push` runs `python3 -m unittest discover -s tests -v` then `./scripts/vendor-automatis-commands --check`. Never `--no-verify`.
+`.githooks/pre-push` runs the unit tests and both validation commands. Never `--no-verify`.
