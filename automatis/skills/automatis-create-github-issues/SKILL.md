@@ -1,5 +1,5 @@
 ---
-name: automatis-create-issues
+name: automatis-create-github-issues
 description: Use when asked to create, file, or draft GitHub issues in project or service repositories to record findings, bugs, investigation follow-ups, or improvements.
 argument-hint: "owner/repo-or-url [--draft]"
 allowed-tools: Bash, Read, Write, Grep, Glob
@@ -18,10 +18,10 @@ Use this skill when the user's intent matches these cases, even without a skill 
 
 ## Arguments
 
-- `/automatis-create-issues owner/repo` — use findings from the conversation.
-- `/automatis-create-issues https://github.com/owner/repo --draft` — prepare descriptions without publishing.
-- `/automatis-create-issues` — infer the responsible service repositories from the task and checkout.
-- `$automatis-create-issues owner/repo` — Codex invocation.
+- `/automatis-create-github-issues owner/repo` — use findings from the conversation.
+- `/automatis-create-github-issues https://github.com/owner/repo --draft` — prepare descriptions without publishing.
+- `/automatis-create-github-issues` — infer the responsible service repositories from the task and checkout.
+- `$automatis-create-github-issues owner/repo` — Codex invocation.
 
 `--draft` means no GitHub writes. A natural-language request for drafts or discussion has the same effect.
 

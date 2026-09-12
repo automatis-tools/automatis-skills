@@ -55,6 +55,7 @@ Claude prefixes native plugin skills with the plugin name. Grok also offers a qu
 
 | Skill | Purpose |
 |-------|---------|
+| `automatis-create-github-issues` | Create or draft GitHub issues from findings |
 | `automatis-fix-pr` | Fix GitHub PR review comments |
 | `automatis-ports-release` | Release port conflicts on macOS |
 | `automatis-git-cleanup` | Clean up local Git branches |
@@ -63,6 +64,7 @@ Claude prefixes native plugin skills with the plugin name. Grok also offers a qu
 Examples below use the canonical command name; use the Claude prefix from the table when invoking its native plugin.
 
 ```text
+/automatis-create-github-issues owner/repo --draft
 /automatis-fix-pr https://github.com/owner/repo/pull/123
 /automatis-ports-release 8000 8001
 /automatis-git-cleanup --dry-run
