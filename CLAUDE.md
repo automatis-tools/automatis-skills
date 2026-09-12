@@ -21,6 +21,7 @@ automatis/
 ├── .claude-plugin/plugin.json
 ├── .codex-plugin/plugin.json
 └── skills/
+    ├── automatis-create-github-issues/SKILL.md
     ├── automatis-fix-pr/SKILL.md          # → /automatis-fix-pr
     ├── automatis-ports-release/SKILL.md   # → /automatis-ports-release
     ├── automatis-git-cleanup/SKILL.md
