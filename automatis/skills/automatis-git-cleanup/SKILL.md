@@ -92,9 +92,15 @@ for line in run(['git', 'worktree', 'list', '--porcelain']).splitlines():
     elif line.startswith('branch refs/heads/') and path and path != main_wt:
         worktrees[line[len('branch refs/heads/'):].strip()] = path
 
+# for-each-ref, not `git branch --merged`: that command prefixes the current
+# branch with '*' and a branch checked out in another worktree with '+', so
+# stripping one marker leaves the other attached and those names never match.
+# In a repository that uses worktrees this reported merged branches as unmerged
+# and offered to open pull requests for work main already contained.
 merged_set = set()
-for line in run(['git', 'branch', '--merged', MAIN]).splitlines():
-    name = line.lstrip('*').strip()
+for line in run(['git', 'for-each-ref', '--merged', MAIN,
+                 '--format=%(refname:short)', 'refs/heads']).splitlines():
+    name = line.strip()
     if name and name != MAIN:
         merged_set.add(name)
 
