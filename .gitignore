@@ -21,3 +21,7 @@ tmp_*
 
 # Generated release packages
 dist/
+
+# Python bytecode
+__pycache__/
+*.pyc
