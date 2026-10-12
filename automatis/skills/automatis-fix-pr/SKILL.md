@@ -77,7 +77,7 @@ gh api "repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews" \
 1. It's a top-level review comment (`in_reply_to_id` is null)
 2. There is **NO reply from the PR author** to that comment
 
-**A comment is CLOSED if the PR author has replied to it** - even if the reply says "won't fix" or "not applicable".
+**Skip comments with an author reply on later runs**, even if the reply says "won't fix" or "not applicable". This filtering rule does not resolve or close the GitHub discussion.
 
 **IMPORTANT: Only process comments from the SPECIFIED or LATEST review**
 
@@ -179,6 +179,8 @@ For each issue to fix:
 
 **IMPORTANT**: Reply to ALL fixed comments BEFORE pushing the branch. This ensures the reviewer sees your explanations before being notified of new commits.
 
+**CRITICAL**: Never resolve or close GitHub review discussions through the UI or any API. Leave each thread's resolution state unchanged after replying. The reviewer reads the reply and decides whether to resolve the discussion.
+
 For each fixed comment, reply with a brief description of the actual fix applied:
 
 ```bash
@@ -220,6 +222,7 @@ Report:
 2. Run tests/lint after fixes when the project has them.
 3. Show planned replies for confirmation; post before pushing (Step 8 `IMPORTANT`).
 4. Push only with explicit user approval (Step 9 `CRITICAL`).
+5. Never resolve or close review discussions. Leave thread resolution to the reviewer after they inspect your reply (Step 8 `CRITICAL`).
 
 ## Example Session
 
@@ -242,5 +245,5 @@ Post replies, then push?
 
 User: yes
 
-Claude: 3 replies posted, branch pushed to origin.
+Claude: 3 replies posted, branch pushed to origin. Review discussions left unchanged for the reviewer.
 ```
