@@ -12,7 +12,7 @@ Engineering skills for Codex, Claude Code, Antigravity CLI, and Grok. One **auto
 | [`automatis-git-cleanup`](automatis/skills/automatis-git-cleanup/SKILL.md) | Clean up local branches, including squash-merged work |
 | [`automatis-ste100`](automatis/skills/automatis-ste100/SKILL.md) | Clarify technical English while preserving meaning |
 
-GitHub workflows require Git and authenticated `gh`. Port release requires macOS and `lsof`.
+GitHub workflows require Git, `python3`, and authenticated `gh`. Port release requires macOS and `lsof`.
 
 ## Install
 
