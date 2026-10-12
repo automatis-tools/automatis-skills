@@ -1,5 +1,7 @@
 # Native Automatis updates
 
+> Historical document, archived on 2026-10-12. Gemini CLI packaging and installation instructions below are retired. Current Antigravity CLI support is documented in [CLAUDE.md](../../../CLAUDE.md) and [README.md](../../../README.md). Do not execute this historical plan.
+
 ## Requirements
 
 Support Codex, Claude Code, Gemini CLI, and Grok through their native plugin or extension managers. Kimi is excluded at the user's request because it lacks automatic plugin updates. Do not add a background updater or require users to copy files after releases.

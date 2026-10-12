@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate native packages and build the generated Gemini release archive."""
+"""Validate native packages and build the Antigravity plugin archive."""
 from __future__ import annotations
 
 import argparse
@@ -25,8 +25,8 @@ SKILL_NAME = re.compile(r"automatis-[a-z0-9]+(?:-[a-z0-9]+)*")
 PACKAGE_MANIFESTS = (
     "automatis/.claude-plugin/plugin.json",
     "automatis/.codex-plugin/plugin.json",
-    "gemini-extension.json",
 )
+ANTIGRAVITY_MANIFEST = "automatis/plugin.json"
 
 
 def load_vendor():
@@ -115,13 +115,22 @@ def validate_package(repo: Path, tag: str | None = None) -> tuple[str, list, lis
     version = next(iter(versions.values()))
     if tag is not None and tag != version:
         raise ReleaseError(f"release tag {tag!r} must equal package version {version!r}")
+    manifest = read_manifest(repo, ANTIGRAVITY_MANIFEST)
+    if manifest.get("name") != "automatis":
+        raise ReleaseError(f"{ANTIGRAVITY_MANIFEST}: plugin name must be 'automatis'")
+    unexpected_fields = set(manifest) - {"name", "description", "$schema"}
+    if unexpected_fields:
+        raise ReleaseError(f"{ANTIGRAVITY_MANIFEST}: unsupported fields: {sorted(unexpected_fields)}")
+    for field in ("description", "$schema"):
+        if field in manifest and not isinstance(manifest[field], str):
+            raise ReleaseError(f"{ANTIGRAVITY_MANIFEST}: {field} must be a string")
     validate_marketplace(repo, ".claude-plugin/marketplace.json", "./automatis")
     validate_marketplace(
         repo, ".agents/plugins/marketplace.json", {"source": "local", "path": "./automatis"}
     )
     legacy_commands = repo / "automatis/commands"
     if legacy_commands.exists() or legacy_commands.is_symlink():
-        raise ReleaseError("legacy automatis/commands/ must not exist; Gemini aliases are generated")
+        raise ReleaseError("legacy automatis/commands/ must not exist; author canonical skills only")
 
     skills_root = repo / "automatis/skills"
     if not skills_root.exists() and not skills_root.is_symlink():
@@ -150,21 +159,6 @@ def validate_package(repo: Path, tag: str | None = None) -> tuple[str, list, lis
     return version, skills, paths
 
 
-def render_gemini_command(skill) -> bytes:
-    prompt = (
-        f'Call activate_skill with {{"name": "{skill.name}"}}.\n'
-        "Follow the activated skill's instructions for this request.\n\n"
-        "User arguments:\n{{args}}\n"
-    )
-    # TOML basic strings share JSON escaping, except DEL must also be escaped.
-    # Keep Unicode literal: JSON surrogate-pair escapes are invalid in TOML.
-    description = json.dumps(skill.fields["description"], ensure_ascii=False).replace("\x7f", "\\u007f")
-    return (
-        f"description = {description}\n"
-        f"prompt = {json.dumps(prompt, ensure_ascii=False)}\n"
-    ).encode("utf-8")
-
-
 def add_entry(tar: tarfile.TarFile, name: str, data: bytes | None, mode: int) -> None:
     info = tarfile.TarInfo(name)
     info.mode = mode
@@ -177,7 +171,7 @@ def add_entry(tar: tarfile.TarFile, name: str, data: bytes | None, mode: int) ->
         tar.addfile(info, io.BytesIO(data))
 
 
-def build_archive(repo: Path, output: Path, skills: list, paths: list[Path]) -> Path:
+def build_archive(repo: Path, output: Path, paths: list[Path]) -> Path:
     if output.resolve().is_relative_to(repo / "automatis/skills"):
         raise ReleaseError("release output must be outside canonical skills/")
     output.mkdir(parents=True, exist_ok=True)
@@ -188,9 +182,9 @@ def build_archive(repo: Path, output: Path, skills: list, paths: list[Path]) -> 
             temporary = Path(raw.name)
             with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as compressed:
                 with tarfile.open(fileobj=compressed, mode="w", format=tarfile.PAX_FORMAT) as tar:
-                    manifest = repo / "gemini-extension.json"
+                    manifest = repo / ANTIGRAVITY_MANIFEST
                     validate_source(manifest, repo)
-                    add_entry(tar, "gemini-extension.json", manifest.read_bytes(), 0o644)
+                    add_entry(tar, "plugin.json", manifest.read_bytes(), 0o644)
                     add_entry(tar, "skills", None, 0o755)
                     for path in sorted(paths):
                         metadata = validate_source(path, repo)
@@ -200,9 +194,6 @@ def build_archive(repo: Path, output: Path, skills: list, paths: list[Path]) -> 
                         else:
                             mode = 0o755 if metadata.st_mode & 0o111 else 0o644
                             add_entry(tar, name, path.read_bytes(), mode)
-                    add_entry(tar, "commands", None, 0o755)
-                    for skill in skills:
-                        add_entry(tar, f"commands/{skill.name}.toml", render_gemini_command(skill), 0o644)
         temporary.replace(archive)
     finally:
         if temporary is not None:
@@ -221,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.check:
             print(f"Validated automatis {version}: {len(skills)} skills")
         else:
-            archive = build_archive(SOURCE_REPO, args.output, skills, paths)
+            archive = build_archive(SOURCE_REPO, args.output, paths)
             print(f"Built {archive} (automatis {version}, {len(skills)} skills)")
     except (ReleaseError, vendor.SkillError, OSError, UnicodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
