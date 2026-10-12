@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Automatis skills for Claude Code, Grok, Codex, and Antigravity CLI",
-    "version": "1.1.1"
+    "version": "1.2.0"
   },
   "plugins": [
     {
