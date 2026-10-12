@@ -1,6 +1,8 @@
 # Multi-harness Automatis commands
 
-Status: approved design (implementation plan at `docs/superpowers/plans/2026-09-01-multi-harness-automatis-commands.md`)
+> Historical document, archived on 2026-10-12. Gemini CLI packaging and installation instructions below are retired. Current Antigravity CLI support is documented in [CLAUDE.md](../../../CLAUDE.md) and [README.md](../../../README.md). Do not execute this historical plan.
+
+Status: approved design (implementation plan at `docs/archive/plans/2026-09-01-multi-harness-automatis-commands.md`)
 
 This repository today is a Claude Code marketplace that ships one plugin, `automatis`, with slash commands invoked as `/automatis:<name>`. The team also uses Codex, Grok, Kimi, and Gemini. Those tools must run the same procedures, from files checked into each Automatis product repo, without a personal marketplace install.
 

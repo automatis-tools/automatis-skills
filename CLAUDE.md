@@ -4,9 +4,9 @@ Guidance for Claude Code when working with this repository.
 
 ## Overview
 
-This is a **multi-harness skills repository** for the Automatis team. Author Agent Skills once and distribute them through native plugins for Codex, Claude Code, and Grok, and a Gemini CLI extension. Product-repository vendoring remains an optional snapshot workflow.
+This is a **multi-harness skills repository** for the Automatis team. Author Agent Skills once and distribute them through native plugins for Codex, Claude Code, Antigravity CLI, and Grok. Product-repository vendoring remains an optional snapshot workflow.
 
-Install `automatis@automatis-tools` once through each host's native manager and enable automatic updates as described in README.md. Adding the marketplace alone does not install the plugin. Claude native skills are named `/automatis:automatis-<name>`; Codex uses `$automatis-<name>`, while Grok and the generated Gemini aliases use `/automatis-<name>`. A skill remains available for implicit agent selection from its description.
+Install `automatis@automatis-tools` through the Codex or Claude marketplace, or install `automatis` through Grok. Enable host updates as described in README.md. Antigravity CLI installs the local `automatis/` directory with `agy plugin install ./automatis`. Adding a marketplace alone does not install the plugin. Claude native skills are named `/automatis:automatis-<name>`. Codex uses `$automatis-<name>`, while Grok and Antigravity use `/automatis-<name>`. A skill remains available for implicit agent selection from its description.
 
 The marketplace schema supports multiple plugins, but this one deliberately ships only `automatis` so team members get every command from a single source package.
 
@@ -15,9 +15,9 @@ The marketplace schema supports multiple plugins, but this one deliberately ship
 ```
 .claude-plugin/marketplace.json    # Claude/Grok catalog (one entry: automatis)
 .agents/plugins/marketplace.json  # Codex catalog (same plugin source)
-gemini-extension.json             # Gemini manifest; skills/ is generated in release assets
 
 automatis/
+├── plugin.json                  # Antigravity native manifest
 ├── .claude-plugin/plugin.json
 ├── .codex-plugin/plugin.json
 └── skills/
@@ -28,12 +28,12 @@ automatis/
     └── automatis-ste100/SKILL.md
 
 scripts/
-├── build-automatis-release       # validate versions and build Gemini release archive
+├── build-automatis-release       # validate packages and build Antigravity plugin archive
 ├── migrate-automatis-install     # archive manifest-owned legacy copies
 └── vendor-automatis-commands     # optional product snapshots; --check validates skills
 ```
 
-There is no `automatis/commands/`. Gemini command aliases are generated inside the release archive from canonical skills, never authored as a second source tree.
+There is no `automatis/commands/`. Antigravity creates slash commands directly from skills. Do not generate a separate command tree.
 
 ## Naming Convention
 
@@ -55,9 +55,10 @@ Deleting a skill: remove its folder and publish a new version. Product snapshots
 - Keep canonical content under `automatis/skills/`; preserve complete directories so relative resources remain available.
 - Codex uses `automatis/.codex-plugin/plugin.json` with `skills: "./skills/"`. Its catalog uses a structured local source pointing at `./automatis`, relative to the repository root.
 - Claude and Grok share `.claude-plugin/marketplace.json` and the existing plugin manifest.
-- Gemini's release archive contains root `gemini-extension.json`, generated `skills/`, and `commands/*.toml`. Install from the unpinned GitHub repository with `--auto-update`. Do not use a local directory install for production auto-updates.
-- Before releasing, bump all three package manifests to the same stable semantic version and update Claude marketplace metadata. Merge the reviewed release commit into `main`, then push a tag equal to the version (for example `1.1.0`). `.github/workflows/release.yml` validates and publishes the archive. Tags do not start with `v`.
-- Claude plugin cache updates depend on its version changing. Codex/Grok/Claude refresh the Git marketplace; Gemini checks GitHub releases. A release does not instantly replace skills already loaded into a running session.
+- Antigravity requires `automatis/plugin.json` beside `skills/`. Its documented manifest contains `name`, optional `description`, and optional `$schema`, without a package version. The release archive contains root `plugin.json` and complete `skills/` trees. Install the canonical directory or unpacked archive with `agy plugin install <directory>`. The CLI creates slash commands from the skill names.
+- Antigravity CLI 1.3.3 supports only its official marketplace and local/GitHub plugin sources. It has no custom marketplace or plugin-update subcommand. For this repository's nested plugin, refresh the checkout and reinstall the local `automatis/` directory through the plugin manager. Do not promise automatic updates for this custom package. See [Antigravity plugins](https://www.antigravity.google/docs/plugins?tab=cli).
+- Before releasing, bump both versioned package manifests (`automatis/.claude-plugin/plugin.json` and `automatis/.codex-plugin/plugin.json`) to the same stable semantic version. Update Claude marketplace metadata too. Submit a draft PR. After the maintainer merges the release commit into `main`, push a tag equal to its version. `.github/workflows/release.yml` validates and publishes `automatis.tar.gz`. Tags do not start with `v`.
+- Claude plugin cache updates depend on its version changing. Codex, Grok, and Claude refresh the Git marketplace. A release does not instantly replace skills already loaded into a running session.
 - Before retiring old installations, install and verify the native plugins. Then use `scripts/migrate-automatis-install` to archive only manifest-owned legacy paths. Do not remove skills by glob; preserve unrelated and untracked local files.
 
 ## Adding a Plugin (rare)
@@ -144,11 +145,17 @@ To verify a change:
    python3 -m unittest discover -s tests -v
    ```
 
-3. Validate native package versions and build the Gemini archive:
+3. Validate native packages and build the Antigravity archive:
    ```bash
    ./scripts/build-automatis-release --check
    ./scripts/build-automatis-release --output dist
    ```
+
+4. If Antigravity CLI is available, validate the source plugin:
+   ```bash
+   agy plugin validate ./automatis
+   ```
+   Also validate the unpacked release archive with `agy plugin validate <directory>`. Native validation does not install the plugin.
 
 CI (`.github/workflows/lint.yml`) runs the tests, vendor validation, and release builder.
 

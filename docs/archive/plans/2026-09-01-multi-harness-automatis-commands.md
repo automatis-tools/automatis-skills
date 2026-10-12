@@ -1,5 +1,7 @@
 # Multi-harness Automatis commands Implementation Plan
 
+> Historical document, archived on 2026-10-12. Gemini CLI packaging and installation instructions below are retired. Current Antigravity CLI support is documented in [CLAUDE.md](../../../CLAUDE.md) and [README.md](../../../README.md). Do not execute this historical plan.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn this marketplace into a multi-harness Automatis command source: Agent Skills as the only authored form, a vendor script that copies them into product repos, and `/automatis-<name>` (Codex: `$automatis-<name>`) as the invocation.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Python 3 stdlib (`unittest`, `argparse`, `pathlib`, `shutil`, `json`). No PyYAML, no `jq`, no new packages.
 
-**Spec:** `docs/superpowers/specs/2026-09-01-multi-harness-automatis-commands-design.md`
+**Spec:** `docs/archive/specs/2026-09-01-multi-harness-automatis-commands-design.md`
 
 ## Global Constraints
 

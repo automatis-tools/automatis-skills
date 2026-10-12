@@ -7,7 +7,6 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import tomllib
 import unittest
 from pathlib import Path
 
@@ -17,8 +16,8 @@ SCRIPT = REPO / "scripts" / "build-automatis-release"
 MANIFESTS = (
     "automatis/.claude-plugin/plugin.json",
     "automatis/.codex-plugin/plugin.json",
-    "gemini-extension.json",
 )
+ANTIGRAVITY_MANIFEST = "automatis/plugin.json"
 
 
 def write_json(path: Path, data: object) -> None:
@@ -38,6 +37,10 @@ class ReleaseTests(unittest.TestCase):
         shutil.copy2(REPO / "scripts" / "vendor-automatis-commands", scripts)
         for rel in MANIFESTS:
             write_json(self.source / rel, {"name": "automatis", "version": "1.1.0"})
+        write_json(
+            self.source / ANTIGRAVITY_MANIFEST,
+            {"name": "automatis", "description": "Engineering skills"},
+        )
         write_json(
             self.source / ".claude-plugin/marketplace.json",
             {"name": "automatis-tools", "plugins": [{"name": "automatis", "source": "./automatis"}]},
@@ -105,7 +108,7 @@ class ReleaseTests(unittest.TestCase):
         with tarfile.open(archive) as tar:
             files = {member.name for member in tar.getmembers() if member.isfile()}
             self.assertEqual(files, {
-                "gemini-extension.json", "LICENSE", "commands/automatis-example.toml",
+                "plugin.json", "LICENSE",
                 "skills/automatis-example/SKILL.md",
                 "skills/automatis-example/references/source.md",
                 "skills/automatis-example/scripts/helper.sh",
@@ -116,29 +119,31 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(tar.getmember("skills/automatis-example/scripts/helper.sh").mode, 0o755)
             self.assertTrue(all(member.isfile() or member.isdir() for member in tar.getmembers()))
 
-    def test_command_toml_preserves_description_and_activates_matching_skill(self):
-        archive = self.build()
-        with tarfile.open(archive) as tar:
-            command = tomllib.loads(tar.extractfile("commands/automatis-example.toml").read().decode("utf-8"))
-        self.assertEqual(command["description"], self.description)
-        self.assertIn("activate_skill", command["prompt"])
-        self.assertIn('"name": "automatis-example"', command["prompt"])
-        self.assertIn("{{args}}", command["prompt"])
-        self.assertIn("\n", command["prompt"])
-
-    def test_command_toml_handles_del_and_non_bmp_unicode(self):
-        description = "Handle DEL \x7f and emoji 🚀"
-        (self.skill / "SKILL.md").write_text(
-            "---\nname: automatis-example\ndescription: " + description + "\n---\n# Example\n",
-            encoding="utf-8",
-        )
+    def test_archive_contains_native_antigravity_manifest(self):
         with tarfile.open(self.build()) as tar:
-            text = tar.extractfile("commands/automatis-example.toml").read().decode("utf-8")
-        try:
-            command = tomllib.loads(text)
-        except tomllib.TOMLDecodeError as exc:
-            self.fail(f"Gemini command is not valid TOML: {exc}")
-        self.assertEqual(command["description"], description)
+            manifest = json.loads(tar.extractfile("plugin.json").read())
+        self.assertEqual(manifest, {"name": "automatis", "description": "Engineering skills"})
+
+    def test_rejects_missing_antigravity_manifest_without_writes(self):
+        (self.source / ANTIGRAVITY_MANIFEST).unlink()
+        result = self.run_builder("--output", str(self.output))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(ANTIGRAVITY_MANIFEST, result.stderr)
+        self.assertFalse(self.output.exists())
+
+    def test_rejects_invalid_antigravity_manifest_without_writes(self):
+        for manifest in (
+            {"description": "Missing name"},
+            {"name": "other"},
+            {"name": "automatis", "description": 123},
+            {"name": "automatis", "skills": "./elsewhere"},
+        ):
+            with self.subTest(manifest=manifest):
+                write_json(self.source / ANTIGRAVITY_MANIFEST, manifest)
+                result = self.run_builder("--output", str(self.output))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(ANTIGRAVITY_MANIFEST, result.stderr)
+                self.assertFalse(self.output.exists())
 
     def test_rejects_output_inside_canonical_skills(self):
         output = self.skill / "generated"
@@ -213,13 +218,17 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIn("marketplace", result.stderr.lower())
 
     def test_rejects_malformed_manifest_without_traceback(self):
-        for value in ("{bad json", "[]", '"text"', "null"):
-            with self.subTest(value=value):
-                (self.source / "gemini-extension.json").write_text(value, encoding="utf-8")
-                result = self.run_builder("--check")
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("gemini-extension.json", result.stderr)
-                self.assertNotIn("Traceback", result.stderr)
+        for relative in (*MANIFESTS, ANTIGRAVITY_MANIFEST):
+            path = self.source / relative
+            original = path.read_bytes()
+            for value in ("{bad json", "[]", '"text"', "null"):
+                with self.subTest(manifest=relative, value=value):
+                    path.write_text(value, encoding="utf-8")
+                    result = self.run_builder("--check")
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(relative, result.stderr)
+                    self.assertNotIn("Traceback", result.stderr)
+            path.write_bytes(original)
 
     def test_rejects_missing_skills_or_invalid_frontmatter(self):
         (self.skill / "SKILL.md").write_text("No frontmatter\n", encoding="utf-8")
@@ -263,7 +272,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("symlink", result.stderr.lower())
 
     def test_rejects_symlinked_manifest(self):
-        manifest = self.source / "gemini-extension.json"
+        manifest = self.source / ANTIGRAVITY_MANIFEST
         outside = self.root / "external-manifest.json"
         manifest.rename(outside)
         manifest.symlink_to(outside)

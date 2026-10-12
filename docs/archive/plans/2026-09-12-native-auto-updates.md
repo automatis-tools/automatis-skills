@@ -1,5 +1,7 @@
 # Native Automatis Updates Implementation Plan
 
+> Historical document, archived on 2026-10-12. Gemini CLI packaging and installation instructions below are retired. Current Antigravity CLI support is documented in [CLAUDE.md](../../../CLAUDE.md) and [README.md](../../../README.md). Do not execute this historical plan.
+
 > **For agentic workers:** Use the linked specification and execute the independent packaging and migration tasks alongside the manifest and documentation work. Review the integrated result before publication.
 
 **Goal:** Deliver new Automatis skills through native automatic updates in Codex, Claude Code, Gemini CLI, and Grok.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Python standard library, JSON/TOML metadata, GitHub Actions, native host CLIs.
 
-**Spec:** `docs/superpowers/specs/2026-09-12-native-auto-updates-design.md`
+**Spec:** `docs/archive/specs/2026-09-12-native-auto-updates-design.md`
 
 ## Global Constraints
 
