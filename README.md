@@ -67,17 +67,6 @@ Start a new session after installation or updates to load the current skills.
 
 Replace `automatis-ste100` with the skill you need. Follow its linked instructions for arguments and options. Agents can also select skills from their descriptions.
 
-## Existing copies
-
-Older copies in `.agents/skills/` or `.claude/commands/` can override native plugins and require manual updates. After verifying the native installation, preview and archive manifest-owned copies from an Automatis checkout:
-
-```bash
-./scripts/migrate-automatis-install "$HOME" --dry-run
-./scripts/migrate-automatis-install "$HOME"
-```
-
-Use a product repository path instead of `"$HOME"` to migrate its copies. The script preserves local edits in `.automatis-migration-backups/` and leaves unrelated skills in place. Without `.automatis-commands.json`, it does nothing.
-
 ## Contributing
 
 Author `automatis/skills/automatis-<name>/SKILL.md` with matching frontmatter `name`. Use Python 3.11 or later for repository checks:
