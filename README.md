@@ -2,6 +2,8 @@
 
 Engineering skills for Codex, Claude Code, Antigravity CLI, and Grok. One **automatis** plugin distributes the canonical skills from [`automatis/skills/`](automatis/skills/).
 
+Created and maintained by [Mykola Maksymenko](https://www.linkedin.com/in/nick-maximenko/).
+
 ## Skills
 
 | Skill | Purpose |
@@ -80,6 +82,13 @@ python3 -m unittest discover -s tests -v
 Enable tracked hooks with `git config core.hooksPath .githooks`. Submit changes as a draft PR. The maintainer controls review readiness and merging.
 
 See [CLAUDE.md](CLAUDE.md) for skill structure, shell safety, release packaging, and optional product snapshots. The same rules apply to every tool. [AGENTS.md](AGENTS.md) summarizes agent instructions.
+
+## Related projects
+
+Other open-source projects by [Mykola Maksymenko](https://www.linkedin.com/in/nick-maximenko/):
+
+- [Agents Can Communicate (ACC)](https://github.com/automatis-tools/agents-can-communicate) connects independent AI coding sessions across clients for local questions, code reviews, and handoffs. [Website](https://getacc.dev/).
+- [Agent Policy Kit](https://github.com/automatis-tools/agent-policy-kit) configures native subagent roles, models, and effort in supported coding tools, then exits.
 
 ## License
 
