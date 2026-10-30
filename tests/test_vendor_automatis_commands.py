@@ -164,6 +164,20 @@ class VendorTests(unittest.TestCase):
         self.assertNotIn("\nname:", rendered)
         self.assertIn("# Fix PR\n", rendered)
 
+    def test_vendor_preserves_explicit_only_invocation(self):
+        skill_dir = self.source / "automatis/skills/automatis-fix-pr"
+        skill_path = skill_dir / "SKILL.md"
+        skill_path.write_text(
+            skill_path.read_text(encoding="utf-8").replace(
+                "---\n", "---\ndisable-model-invocation: true\n", 1
+            ),
+            encoding="utf-8",
+        )
+        self.v.vendor(self.source, self.target)
+        command = self.target / ".claude/commands/automatis-fix-pr.md"
+        fields, _ = self.v.parse_frontmatter(command.read_text(encoding="utf-8"))
+        self.assertEqual(fields.get("disable-model-invocation"), "true")
+
     def test_vendor_writes_skills_commands_and_manifest(self):
         logs = self.v.vendor(self.source, self.target)
         self.assertTrue(any("automatis-fix-pr" in line for line in logs))

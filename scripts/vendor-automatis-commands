@@ -92,7 +92,9 @@ def load_skill(directory: Path) -> Skill:
     return Skill(name=name, directory=directory, fields=fields, body=body)
 
 
-COMMAND_KEYS = ("description", "argument-hint", "allowed-tools")
+COMMAND_KEYS = (
+    "description", "argument-hint", "allowed-tools", "disable-model-invocation"
+)
 MANIFEST_NAME = ".automatis-commands.json"
 MANIFEST_SOURCE = "automatis-tools/automatis-skills"
 

@@ -6,6 +6,8 @@ Guidance for Claude Code when working with this repository.
 
 This is a **multi-harness skills repository** for the Automatis team. Author Agent Skills once and distribute them through native plugins for Codex, Claude Code, Antigravity CLI, and Grok. Product-repository vendoring remains an optional snapshot workflow.
 
+Kimi Code can load `automatis/skills` directly through `extra_skill_dirs`; see README.md. It invokes skills as `/skill:automatis-<name>`. The review and audit skills are explicit-only, including when vendored; preserve their invocation policy metadata.
+
 Install `automatis@automatis-tools` through the Codex or Claude marketplace, or install `automatis` through Grok. Enable host updates as described in README.md. Antigravity CLI installs the local `automatis/` directory with `agy plugin install ./automatis`. Adding a marketplace alone does not install the plugin. Claude native skills are named `/automatis:automatis-<name>`. Codex uses `$automatis-<name>`, while Grok and Antigravity use `/automatis-<name>`. A skill remains available for implicit agent selection from its description.
 
 The marketplace schema supports multiple plugins, but this one deliberately ships only `automatis` so team members get every command from a single source package.

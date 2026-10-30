@@ -1,0 +1,6 @@
+interface:
+  display_name: "Automatis Audit"
+  short_description: "Audit a codebase for concrete risks and complexity"
+  default_prompt: "Use $automatis-audit to inspect this repository and report the most important findings briefly."
+policy:
+  allow_implicit_invocation: false

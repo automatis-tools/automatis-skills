@@ -1,6 +1,6 @@
 # Automatis Skills
 
-Engineering skills for Codex, Claude Code, Antigravity CLI, and Grok. One **automatis** plugin distributes the canonical skills from [`automatis/skills/`](automatis/skills/).
+Engineering skills for Codex, Claude Code, Antigravity CLI, Grok, and Kimi Code. One **automatis** plugin distributes the canonical skills from [`automatis/skills/`](automatis/skills/); Kimi can load the same directory directly.
 
 ## Skills
 
@@ -11,6 +11,8 @@ Engineering skills for Codex, Claude Code, Antigravity CLI, and Grok. One **auto
 | [`automatis-ports-release`](automatis/skills/automatis-ports-release/SKILL.md) | Identify and release port conflicts on macOS |
 | [`automatis-git-cleanup`](automatis/skills/automatis-git-cleanup/SKILL.md) | Clean up local branches, including squash-merged work |
 | [`automatis-ste100`](automatis/skills/automatis-ste100/SKILL.md) | Clarify technical English while preserving meaning |
+| [`automatis-review`](automatis/skills/automatis-review/SKILL.md) | Review a change for concrete defects and unnecessary complexity; explicit invocation only |
+| [`automatis-audit`](automatis/skills/automatis-audit/SKILL.md) | Audit a codebase for concrete risks and unnecessary complexity; explicit invocation only |
 
 GitHub workflows require Git, `python3`, and authenticated `gh`. Port release requires macOS and `lsof`.
 
@@ -57,6 +59,16 @@ grok plugin enable automatis
 
 Start a new session after installation or updates to load the current skills.
 
+### Kimi Code
+
+Clone this repository if you do not already have a checkout. Add its absolute `automatis/skills` path to the top-level `extra_skill_dirs` list in `~/.kimi-code/config.toml`:
+
+```toml
+extra_skill_dirs = ["/absolute/path/to/automatis-skills/automatis/skills"]
+```
+
+Preserve existing entries and settings. This [adds a skill directory](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html) without replacing Kimi's normal discovery. Start a new session after adding it. Skills follow the checkout's contents; update the checkout to receive changes.
+
 ## Use
 
 | Tool | Example |
@@ -64,8 +76,9 @@ Start a new session after installation or updates to load the current skills.
 | Codex | `$automatis-ste100 docs/setup.md` |
 | Claude Code | `/automatis:automatis-ste100 docs/setup.md` |
 | Antigravity CLI / Grok | `/automatis-ste100 docs/setup.md` |
+| Kimi Code | `/skill:automatis-ste100 docs/setup.md` |
 
-Replace `automatis-ste100` with the skill you need. Follow its linked instructions for arguments and options. Agents can also select skills from their descriptions.
+Replace `automatis-ste100` with the skill you need. Follow its linked instructions for arguments and options. Agents can also select skills from their descriptions, except `automatis-review` and `automatis-audit`: these run only when explicitly invoked. They produce concise reports in the conversation's language and make no code changes. They add no hooks, persistent mode, or automatic review round.
 
 ## Contributing
 
@@ -83,4 +96,4 @@ See [CLAUDE.md](CLAUDE.md) for skill structure, shell safety, release packaging,
 
 ## License
 
-MIT. The STE skill retains its upstream attribution and license in [SKILL.md](automatis/skills/automatis-ste100/SKILL.md).
+MIT. The STE skill retains its upstream attribution and license in [SKILL.md](automatis/skills/automatis-ste100/SKILL.md). Review and audit are adapted from [Ponytail](https://github.com/DietrichGebert/ponytail/tree/96608e078b2d5ea607c5c3b8b5a54d1c1fba6846); each skill retains its upstream MIT license and attribution.
