@@ -80,6 +80,10 @@ Preserve existing entries and settings. This [adds a skill directory](https://ww
 
 Replace `automatis-ste100` with the skill you need. Follow its linked instructions for arguments and options. Agents can also select skills from their descriptions, except `automatis-review` and `automatis-audit`: these run only when explicitly invoked. They produce concise reports in the conversation's language and make no code changes. They add no hooks, persistent mode, or automatic review round.
 
+When explicitly included in another review workflow, these skills supplement its checks and preserve its target, reviewer independence, and required output. They do not replace Superpowers review gates or Claude's `/code-review` and `/simplify` workflows. Their read-only instructions apply to the inspection phase; tool permissions remain governed by the host.
+
+Installation does not attach these instructions to other reviewers. In Claude, manual-only skills cannot be [preloaded through a subagent's `skills` field](https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents); pass the relevant criteria explicitly in the review brief.
+
 ## Contributing
 
 Author `automatis/skills/automatis-<name>/SKILL.md` with matching frontmatter `name`. Use Python 3.11 or later for repository checks:

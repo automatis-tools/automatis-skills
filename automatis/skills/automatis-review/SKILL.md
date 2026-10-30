@@ -2,7 +2,7 @@
 name: automatis-review
 description: Use only when the user explicitly invokes automatis-review by name or command. Generic requests for review, fixes, or simpler code do not activate this skill.
 argument-hint: "[uncommitted | staged | branch | commit | PR URL | paths]"
-allowed-tools: Bash, Read, Grep, Glob
+allowed-tools: Read, Grep, Glob
 disable-model-invocation: true
 license: MIT
 ---
@@ -10,6 +10,8 @@ license: MIT
 # Review a Change
 
 Review one change for concrete defects and unnecessary complexity. This is a one-shot report, not a session mode. Reply in the conversation's language.
+
+Within another workflow, add these checks to its existing review. Preserve its target range, inspection limits, independent reviewer requirement, required checks, and report format. Do not add a review round or replace a required stage. The read-only rules apply to this review phase; they do not prohibit later fixes the user authorizes.
 
 ## When to Use
 
@@ -27,7 +29,7 @@ Review one change for concrete defects and unnecessary complexity. This is a one
 
 ### Step 1: Bind the Scope
 
-Use the named target. With no target, start with:
+Use the named target or the delegating workflow's review package and base/head revisions. A delegated review without a target is incomplete: request the missing target from the delegator instead of selecting the working tree. For a standalone invocation with no target, start with:
 
 ```bash
 git status --short
@@ -40,9 +42,9 @@ Include relevant untracked source files. With no pending changes, report that; d
 
 ### Step 2: Trace the Change
 
-Read repository instructions, affected callers, callees, contracts, and tests. Follow changed data through the real path: a defect may be in an unchanged caller. Inspect registries, config, dynamic imports, fixtures, and exports before calling code unused.
+Use the supplied review package and evidence first. Follow the owning workflow's limits on reading files and running checks. Trace affected callers, callees, contracts, and tests for concrete risks: a defect may be in an unchanged caller. Inspect registries, config, dynamic imports, fixtures, and exports before calling code unused.
 
-Use existing review evidence for the same revision. Check new evidence or gaps instead of repeating an equivalent review; this skill adds no mandatory review round or subagent workflow.
+Reuse evidence only when its revision, scope, checks, and reviewer independence meet the current workflow's requirements. An implementer's self-review does not replace independent review. Distinct required checks, such as spec compliance, remain required.
 
 ### Step 3: Assess the Evidence
 
@@ -57,14 +59,15 @@ Prioritize correctness, security and data loss, expected load, test gaps, perfor
 
 ### Step 4: Report
 
-Lead with the verdict. Give numbered findings in severity order, normally at most five; include every critical issue. Each compact paragraph contains `path:line`, trigger, consequence, and the smallest complete remedy. Separate optional simplifications from defects. Omit style preferences, speculative scale concerns, and invented line-count savings.
+Use the owning workflow's report format when one is specified, including all required verdicts and unresolved verification items. Otherwise, lead with the verdict and give numbered findings in severity order, normally at most five; include every critical issue. Each compact paragraph contains `path:line`, trigger, consequence, and the smallest complete remedy. Separate optional simplifications from defects. Omit style preferences, speculative scale concerns, and invented line-count savings.
 
-With no actionable findings, state the checked scope. End with relevant checks and material gaps. Keep the report brief unless the user requests detail.
+In a standalone report, state the checked scope when there are no actionable findings, and end with relevant checks and material gaps. Keep it brief unless the user requests detail.
 
 ## Safety Rules
 
 1. Inspect and report only. Do not edit code, remove files, install dependencies, alter Git state, post findings, or change settings.
 2. A remedy is a proposal. It does not authorize execution, publishing, or merging.
 3. Run checks only when safe in the current environment. Report what actually ran. Existing user and repository instructions remain authoritative.
+4. Shell inspection uses normal host permissions. The tool metadata does not enforce a read-only sandbox.
 
 Adapted from [Ponytail](https://github.com/DietrichGebert/ponytail/blob/96608e078b2d5ea607c5c3b8b5a54d1c1fba6846/skills/ponytail-review/SKILL.md), copyright 2026 DietrichGebert. See [LICENSE](LICENSE).
