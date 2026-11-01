@@ -1,6 +1,6 @@
 # Automatis Skills
 
-Engineering skills for Codex, Claude Code, Antigravity CLI, and Grok. One **automatis** plugin distributes the canonical skills from [`automatis/skills/`](automatis/skills/).
+Engineering skills for Codex, Claude Code, Antigravity CLI, Grok, and Kimi Code. One **automatis** plugin distributes the canonical skills from [`automatis/skills/`](automatis/skills/).
 
 Created and maintained by [Mykola Maksymenko](https://www.linkedin.com/in/nick-maximenko/).
 
@@ -58,6 +58,16 @@ grok plugin enable automatis
 
 [Grok checks for updates at session startup](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/09-plugins.md) unless configuration or managed policy disables them.
 
+### Kimi Code
+
+Run this command in a Kimi Code session:
+
+```text
+/plugins install https://github.com/automatis-tools/automatis-skills
+```
+
+Then run `/reload` or start a new session with `/new`. Kimi Code installs the latest GitHub release. To update, open `/plugins`, select **automatis** on the **Installed** tab, and press `Enter`. Kimi Code does not update plugins automatically. See [Kimi Code plugins](https://moonshotai.github.io/kimi-code/en/customization/plugins.html).
+
 Start a new session after installation or updates to load the current skills.
 
 ## Use
@@ -67,6 +77,7 @@ Start a new session after installation or updates to load the current skills.
 | Codex | `$automatis-ste100 docs/setup.md` |
 | Claude Code | `/automatis:automatis-ste100 docs/setup.md` |
 | Antigravity CLI / Grok | `/automatis-ste100 docs/setup.md` |
+| Kimi Code | `/skill:automatis:automatis-ste100 docs/setup.md` |
 
 Replace `automatis-ste100` with the skill you need. Follow its linked instructions for arguments and options. Agents can also select skills from their descriptions.
 

@@ -22,9 +22,14 @@ sys.dont_write_bytecode = True
 SOURCE_REPO = Path(__file__).resolve().parent.parent
 VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 SKILL_NAME = re.compile(r"automatis-[a-z0-9]+(?:-[a-z0-9]+)*")
+KIMI_MANIFEST = "kimi.plugin.json"
+# Kimi Code installs a GitHub repository from its root, so its manifest lives
+# there and points at the canonical skills instead of copying them.
+KIMI_SKILLS = "./automatis/skills/"
 PACKAGE_MANIFESTS = (
     "automatis/.claude-plugin/plugin.json",
     "automatis/.codex-plugin/plugin.json",
+    KIMI_MANIFEST,
 )
 ANTIGRAVITY_MANIFEST = "automatis/plugin.json"
 
@@ -115,6 +120,8 @@ def validate_package(repo: Path, tag: str | None = None) -> tuple[str, list, lis
     version = next(iter(versions.values()))
     if tag is not None and tag != version:
         raise ReleaseError(f"release tag {tag!r} must equal package version {version!r}")
+    if read_manifest(repo, KIMI_MANIFEST).get("skills") != KIMI_SKILLS:
+        raise ReleaseError(f"{KIMI_MANIFEST}: skills must be {KIMI_SKILLS!r}")
     manifest = read_manifest(repo, ANTIGRAVITY_MANIFEST)
     if manifest.get("name") != "automatis":
         raise ReleaseError(f"{ANTIGRAVITY_MANIFEST}: plugin name must be 'automatis'")
