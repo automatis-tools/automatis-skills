@@ -18,6 +18,8 @@ MANIFESTS = (
     "automatis/.codex-plugin/plugin.json",
 )
 ANTIGRAVITY_MANIFEST = "automatis/plugin.json"
+KIMI_MANIFEST = "kimi.plugin.json"
+KIMI_DEFAULT = {"name": "automatis", "version": "1.1.0", "skills": "./automatis/skills/"}
 
 
 def write_json(path: Path, data: object) -> None:
@@ -41,6 +43,7 @@ class ReleaseTests(unittest.TestCase):
             self.source / ANTIGRAVITY_MANIFEST,
             {"name": "automatis", "description": "Engineering skills"},
         )
+        write_json(self.source / KIMI_MANIFEST, KIMI_DEFAULT)
         write_json(
             self.source / ".claude-plugin/marketplace.json",
             {"name": "automatis-tools", "plugins": [{"name": "automatis", "source": "./automatis"}]},
@@ -218,7 +221,7 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIn("marketplace", result.stderr.lower())
 
     def test_rejects_malformed_manifest_without_traceback(self):
-        for relative in (*MANIFESTS, ANTIGRAVITY_MANIFEST):
+        for relative in (*MANIFESTS, ANTIGRAVITY_MANIFEST, KIMI_MANIFEST):
             path = self.source / relative
             original = path.read_bytes()
             for value in ("{bad json", "[]", '"text"', "null"):
@@ -272,13 +275,48 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("symlink", result.stderr.lower())
 
     def test_rejects_symlinked_manifest(self):
-        manifest = self.source / ANTIGRAVITY_MANIFEST
-        outside = self.root / "external-manifest.json"
-        manifest.rename(outside)
-        manifest.symlink_to(outside)
-        result = self.run_builder("--check")
+        for relative in (ANTIGRAVITY_MANIFEST, KIMI_MANIFEST):
+            with self.subTest(manifest=relative):
+                manifest = self.source / relative
+                outside = self.root / "external-manifest.json"
+                manifest.rename(outside)
+                manifest.symlink_to(outside)
+                try:
+                    result = self.run_builder("--check")
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("symlink", result.stderr.lower())
+                finally:
+                    manifest.unlink()
+                    outside.rename(manifest)
+
+    def test_rejects_missing_kimi_manifest_without_writes(self):
+        (self.source / KIMI_MANIFEST).unlink()
+        result = self.run_builder("--output", str(self.output))
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("symlink", result.stderr.lower())
+        self.assertIn(KIMI_MANIFEST, result.stderr)
+        self.assertFalse(self.output.exists())
+
+    def test_rejects_invalid_kimi_manifest_without_writes(self):
+        for change, message in (
+            ({"name": "other"}, "name"),
+            ({"version": "1.2.0"}, "version"),
+            ({"version": "v1.1.0"}, "version"),
+            ({"skills": None}, "skills"),
+            ({"skills": "./skills/"}, "skills"),
+            ({"skills": ["./automatis/skills/"]}, "skills"),
+        ):
+            manifest = {key: value for key, value in {**KIMI_DEFAULT, **change}.items() if value is not None}
+            with self.subTest(manifest=manifest):
+                write_json(self.source / KIMI_MANIFEST, manifest)
+                result = self.run_builder("--output", str(self.output))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(KIMI_MANIFEST, result.stderr)
+                self.assertIn(message, result.stderr.lower())
+                self.assertFalse(self.output.exists())
+
+    def test_archive_excludes_kimi_manifest(self):
+        with tarfile.open(self.build()) as tar:
+            self.assertNotIn(KIMI_MANIFEST, tar.getnames())
 
     def test_rejects_legacy_authored_commands(self):
         (self.source / "automatis/commands").mkdir()

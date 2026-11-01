@@ -4,9 +4,9 @@ Guidance for Claude Code when working with this repository.
 
 ## Overview
 
-This is a **multi-harness skills repository** for the Automatis team. Author Agent Skills once and distribute them through native plugins for Codex, Claude Code, Antigravity CLI, and Grok. Product-repository vendoring remains an optional snapshot workflow.
+This is a **multi-harness skills repository** for the Automatis team. Author Agent Skills once and distribute them through native plugins for Codex, Claude Code, Antigravity CLI, Grok, and Kimi Code. Product-repository vendoring remains an optional snapshot workflow.
 
-Install `automatis@automatis-tools` through the Codex or Claude marketplace, or install `automatis` through Grok. Enable host updates as described in README.md. Antigravity CLI installs the local `automatis/` directory with `agy plugin install ./automatis`. Adding a marketplace alone does not install the plugin. Claude native skills are named `/automatis:automatis-<name>`. Codex uses `$automatis-<name>`, while Grok and Antigravity use `/automatis-<name>`. A skill remains available for implicit agent selection from its description.
+Install `automatis@automatis-tools` through the Codex or Claude marketplace, or install `automatis` through Grok. Enable host updates as described in README.md. Antigravity CLI installs the local `automatis/` directory with `agy plugin install ./automatis`. Kimi Code installs the repository URL with `/plugins install`. Adding a marketplace alone does not install the plugin. Claude native skills are named `/automatis:automatis-<name>`. Codex uses `$automatis-<name>`, Grok and Antigravity use `/automatis-<name>`, and Kimi Code uses `/skill:automatis:automatis-<name>`. A skill remains available for implicit agent selection from its description.
 
 The marketplace schema supports multiple plugins, but this one deliberately ships only `automatis` so team members get every command from a single source package.
 
@@ -15,6 +15,7 @@ The marketplace schema supports multiple plugins, but this one deliberately ship
 ```
 .claude-plugin/marketplace.json    # Claude/Grok catalog (one entry: automatis)
 .agents/plugins/marketplace.json  # Codex catalog (same plugin source)
+kimi.plugin.json                  # Kimi Code manifest (skills: ./automatis/skills/)
 
 automatis/
 ├── plugin.json                  # Antigravity native manifest
@@ -57,8 +58,9 @@ Deleting a skill: remove its folder and publish a new version. Product snapshots
 - Claude and Grok share `.claude-plugin/marketplace.json`. Claude reads `automatis/.claude-plugin/plugin.json`. Grok prefers the root `automatis/plugin.json` in this package. That manifest supplies the name and description, without Claude's version, author, or keywords.
 - Antigravity requires `automatis/plugin.json` beside `skills/`. Its documented manifest contains `name`, optional `description`, and optional `$schema`, without a package version. The release archive contains root `plugin.json` and complete `skills/` trees. Install the canonical directory or unpacked archive with `agy plugin install <directory>`. The CLI creates slash commands from the skill names.
 - Antigravity CLI 1.3.3 supports only its official marketplace and local/GitHub plugin sources. It has no custom marketplace or plugin-update subcommand. For this repository's nested plugin, refresh the checkout and reinstall the local `automatis/` directory through the plugin manager. Do not promise automatic updates for this custom package. See [Antigravity plugins](https://www.antigravity.google/docs/plugins?tab=cli).
-- Before releasing, bump both versioned package manifests (`automatis/.claude-plugin/plugin.json` and `automatis/.codex-plugin/plugin.json`) to the same stable semantic version. Update Claude marketplace metadata too. Submit a draft PR. After the maintainer merges the release commit into `main`, push a tag equal to its version. `.github/workflows/release.yml` validates and publishes `automatis.tar.gz`. Tags do not start with `v`.
-- Claude plugin cache updates depend on its version changing. Codex, Grok, and Claude refresh the Git marketplace. A release does not instantly replace skills already loaded into a running session.
+- Kimi Code reads only `kimi.plugin.json` or `.kimi-plugin/plugin.json` at the plugin root. A GitHub install downloads the whole repository, so the Kimi manifest stays at the repository root and sets `skills` to `./automatis/skills/`. Do not copy skills for Kimi. `/plugins install https://github.com/automatis-tools/automatis-skills` installs the latest GitHub release. Users update it from the `/plugins` **Installed** tab. Kimi Code does not update plugins automatically. Kimi namespaces plugin skills as `/skill:automatis:automatis-<name>`. Kimi ignores Claude-only frontmatter such as `allowed-tools` and `argument-hint`. See [Kimi Code plugins](https://moonshotai.github.io/kimi-code/en/customization/plugins.html).
+- Before releasing, bump all three versioned package manifests (`automatis/.claude-plugin/plugin.json`, `automatis/.codex-plugin/plugin.json`, and `kimi.plugin.json`) to the same stable semantic version. Update Claude marketplace metadata too. Submit a draft PR. After the maintainer merges the release commit into `main`, push a tag equal to its version. `.github/workflows/release.yml` validates and publishes `automatis.tar.gz`. Tags do not start with `v`.
+- Claude plugin cache updates depend on its version changing. Codex, Grok, and Claude refresh the Git marketplace. Kimi Code compares the installed release with the latest GitHub release. A release does not instantly replace skills already loaded into a running session.
 - Before retiring old installations, install and verify the native plugins. Then use `scripts/migrate-automatis-install` to archive only manifest-owned legacy paths. Do not remove skills by glob; preserve unrelated and untracked local files.
 
 ## Adding a Plugin (rare)
