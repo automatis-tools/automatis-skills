@@ -41,11 +41,12 @@ Enable auto-update in `/plugin` → **Marketplaces** → **automatis-tools**. [T
 ### Antigravity CLI
 
 ```bash
-git clone https://github.com/automatis-tools/automatis-skills.git
-agy plugin install ./automatis-skills/automatis
+agy plugin install https://github.com/automatis-tools/automatis-skills
 ```
 
-Skip cloning if you already have a checkout. Install its `automatis/` directory as a [local Antigravity plugin](https://www.antigravity.google/docs/plugins?tab=cli). Custom marketplace auto-updates are not available in `agy 1.3.3`.
+Antigravity CLI clones the repository and installs its `automatis/` plugin. To update, run the same command again. It replaces the installed copy. To pin a release, install `https://github.com/automatis-tools/automatis-skills/tree/<version>/automatis`. In a checkout, run `agy plugin install ./automatis`.
+
+[Antigravity CLI](https://www.antigravity.google/docs/plugins?tab=cli) 1.4.12 accepts only its official marketplace. Automatis has no Antigravity marketplace entry and no automatic updates.
 
 ### Grok
 
