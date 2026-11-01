@@ -1,6 +1,6 @@
 {
   "name": "automatis",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Automatis skills for PR reviews, port conflicts, Git cleanup, and clear technical English.",
   "author": { "name": "Automatis Tools" },
   "homepage": "https://github.com/automatis-tools/automatis-skills",
